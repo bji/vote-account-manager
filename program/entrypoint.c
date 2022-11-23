@@ -26,10 +26,10 @@ typedef enum
     //   Instance of EnterInstructionData
     Instruction_Enter,                        = 0,
 
-    // Set the intention to leave flag.  This is only necessary if commission caps are being enforced.  When the
-    // LeaveEpoch is set, the validator will not be allowed to change commission ever again, and will not be allowed
-    // to Leave the program until the LeaveEpoch.  Only the original vote account withdraw authority may issue this
-    // instruction.
+    // Set the leave epoch.  This is only necessary if commission caps are being enforced.  When the LeaveEpoch is
+    // set, the validator will not be allowed to change commission while managed by this program ever again, and will
+    // not be allowed to Leave the program until the leave epoch.  Only the original vote account withdraw authority
+    // may issue this instruction.
     //
     // # Account references
     //   0. `[WRITE]` Vote Account Manager state account, computed as the PDA of the vote account pubkey + bump seed
