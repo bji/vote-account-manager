@@ -1120,7 +1120,7 @@ static uint64_t process_set_administrator(const SolParameters *params, const Sol
     const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
 
     // Overwrite the administrator pubkey
-    manager_account_state->administrator = instruction_data->administrator;
+    manager_account_state->administrator = instruction_data->authority;
 
     return 0;
 }
@@ -1156,7 +1156,7 @@ static uint64_t process_set_operational_authority(const SolParameters *params, c
     const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
 
     // Overwrite the operational authority pubkey
-    manager_account_state->operational_authority = instruction_data->operational_authority;
+    manager_account_state->operational_authority = instruction_data->authority;
 
     return 0;
 }
@@ -1192,7 +1192,7 @@ static uint64_t process_set_rewards_authority(const SolParameters *params, const
     const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
 
     // Overwrite the rewards authority pubkey
-    manager_account_state->rewards_authority = instruction_data->rewards_authority;
+    manager_account_state->rewards_authority = instruction_data->authority;
 
     return 0;
 }
