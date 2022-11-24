@@ -1,0 +1,722 @@
+#!/bin/bash
+
+
+# Ensure solxact program is in $PATH
+if ! type solxact >/dev/null 2>/dev/null; then
+    echo
+    echo "ERROR: solxact program cannot be found in PATH.  Please install solxact before using vamp:"
+    echo
+    echo "  https://github.com/bji/solxact"
+    echo
+    exit 1
+fi
+
+
+function usage ()
+{
+    case "$1" in
+
+        "enter")
+
+            cat <<EOF
+
+Usage: vamp enter
+
+EOF
+            ;;
+        
+        "set-leave-epoch")
+
+            cat <<EOF
+
+Usage: vamp set-leave-epoch
+
+EOF
+            ;;
+            
+        "leave")
+
+            cat <<EOF
+
+Usage: vamp leave
+
+EOF
+            ;;
+            
+        "set-administrator")
+
+            cat <<EOF
+
+Usage: vamp set-administrator
+
+EOF
+            ;;
+            
+        "set-operational-authority")
+
+            cat <<EOF
+
+Usage: vamp set-operational-authority
+
+EOF
+            ;;
+            
+        "set-rewards-authority")
+
+            cat <<EOF
+
+Usage: vamp set-rewards-authority
+
+EOF
+            ;;
+            
+        "set-vote-authority")
+        
+            cat <<EOF
+
+Usage: vamp set-vote-authority
+
+EOF
+            ;;
+            
+        "set-validator-identity")
+        
+            cat <<EOF
+
+Usage: vamp set-validator-identity
+
+EOF
+            ;;
+            
+        "withdraw-rewards")
+        
+            cat <<EOF
+
+Usage: vamp withdraw-rewards
+
+EOF
+            ;;
+            
+        "set-commission")
+
+            cat <<EOF
+
+Usage: vamp set-commission
+
+EOF
+            ;;
+
+        "show")
+
+            cat <<EOF
+
+Usage: vamp show
+
+EOF
+            ;;
+            
+        *)
+
+            cat <<EOF
+
+Usage: vamp enter
+       vamp set-leave-epoch
+       vamp leave
+       vamp set-administrator
+       vamp set-operational-authority
+       vamp set-rewards-authority
+       vamp set-vote-authority
+       vamp set-validator-identity
+       vamp withdraw-rewards
+       vamp set-commission
+       vamp show
+       vamp help
+
+EOF
+            ;;
+
+    esac
+}
+
+
+function require ()
+{
+    if [ -z "$2" ]; then
+        usage "$1"
+        exit 1
+    fi
+}
+
+
+function tx ()
+{
+    echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY | solxact submit $RPC_ENDPOINT
+}
+
+
+# Data is piped in
+function to_base58 ()
+{
+    local -a base58_chars=(
+        1 2 3 4 5 6 7 8 9
+        A B C D E F G H   J K L M N   P Q R S T U V W X Y Z
+        a b c d e f g h i j k   m n o p q r s t u v w x y z
+    )
+    xxd -p -u | tr -d '\n' |
+        {
+            read hex
+            while [[ "$hex" =~ ^00 ]]; do
+                echo -n 1; hex="${hex:2}"
+            done
+            if test -n "$hex"; then
+                dc -e "16i0$hex Ai[58~rd0<x]dsxx+f" |
+                    while read -r
+                    do echo -n "${base58_chars[REPLY]}"
+                    done
+            fi
+            echo
+        }
+}
+
+# Given base64 data $2 (as loaded by get_account_data), returns the numeric u8 value at offset $1
+function get_data_u8 ()
+{
+    local offset=$1
+    
+    echo "$2" | base64 -d | od -An -j$offset -N1 -tu1 -v | tr -d [:space:]
+}
+
+
+# Given base64 data $2 (as loaded by get_account_data), returns the numeric u16 value at offset $1
+function get_data_u16 ()
+{
+    local offset=$1
+    
+    echo "$2" | base64 -d | od -An -j$offset -N2 -tu2 -v | tr -d [:space:]
+}
+
+
+# Given base64 data $2 (as loaded by get_account_data), returns the numeric u32 value at offset $1
+function get_data_u32 ()
+{
+    local offset=$1
+    
+    echo "$2" | base64 -d | od -An -j$offset -N4 -tu4 -v | tr -d [:space:]
+}
+
+
+# Given base64 data $2 (as loaded by get_account_data), returns the numeric u64 value at offset $1
+function get_data_u64 ()
+{
+    local offset=$1
+    
+    echo "$2" | base64 -d | od -An -j$offset -N8 -tu8 -v | tr -d [:space:]
+}
+
+
+# Given base64 data $2 (as loaded by get_account_data), returns the bool value at offset $1
+function get_data_bool ()
+{
+    local bv=`get_data_u8 $1 "$2"`
+
+    if [ "0$bv" -eq 0 ]; then
+        echo false
+    else
+        echo true
+    fi
+}
+
+
+# Given base64 data $2 (as loaded by get_account_data), returns the pubkey value at offset $1 (as Base58 string)
+function get_data_pubkey ()
+{
+    local offset=$1
+    echo "$2" | base64 -d | dd bs=1 count=32 skip=$offset status=none | to_base58
+}
+
+
+function get_account_data ()
+{
+    local RPC_URL=$1
+    local ACCOUNT_PUBKEY=$2
+    local DATA_OFFSET=$3
+    local DATA_LEN=$4
+
+    if [ -n "$DATA_OFFSET" ]; then
+        DATA_SLICE="\"dataSlice\":{\"offset\":$DATA_OFFSET,\"length\":$DATA_LEN},"
+    else
+        DATA_SLICE=
+    fi
+
+    DATA=`curl -s $RPC_URL -X POST -H "Content-Type: application/json" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getAccountInfo\",\"params\":[\"$ACCOUNT_PUBKEY\",{$DATA_SLICE\"encoding\":\"base64\"}]}" | jq -r ".result.value.data[0]"`
+
+    if [ "$DATA" = "null" ]; then
+        echo -n ""
+    else
+        echo -n "$DATA"
+    fi
+}
+
+
+# If the next argument is [-f], then a fee payer is specified
+if [ "$1" = "-f" ]; then
+    FEE_PAYER="$1"
+    shift
+fi
+
+
+# If the next argument is [-u], then an RPC endpoint is specified, otherwise use the default
+if [ "$1" = "-u" ]; then
+    shift
+    if [ -z "$1" ]; then
+        usage
+        exit 1
+    fi
+    case "$1" in
+        l | localhost) RPC_ENDPOINT=http://localhost:8899 ;;
+        d | devnet) RPC_ENDPOINT=https://api.devnet.solana.com ;;
+        t | testnet) RPC_ENDPOINT=https://api.testnet.solana.com ;;
+        m | mainnet) RPC_ENDPOINT=https://api.mainnet-beta.solana.com ;;
+        *) RPC_ENDPOINT="$1" ;;
+    esac
+    shift
+else
+    RPC_ENDPOINT=https://api.mainnet-beta.solana.com
+fi
+
+
+# The command is the next argument.
+COMMAND="$1"
+if [ -z "$COMMAND" -o "$COMMAND" = "help" ]; then
+    usage "$1"
+    exit 0
+fi
+shift
+
+
+# For all commands except show, an authority is provided
+if [ "$COMMAND" != "show" ]; then
+
+    # The authority is the next argument.
+    AUTHORITY="$1"
+    if [ -z "$AUTHORITY" ]; then
+        usage "$COMMAND"
+        exit 1
+    fi
+    shift
+    
+    
+    # If the fee payer was not specified, it is the authority
+    if [ -z "$FEE_PAYER" ]; then
+        FEE_PAYER="$AUTHORITY"
+    fi
+    
+fi
+
+
+# The vote account is the next argument
+VOTE_ACCOUNT="$1"
+if [ -z "$VOTE_ACCOUNT" ]; then
+    usage "$COMMAND"
+    exit 1
+fi
+shift
+
+
+# Define pubkeys
+if [ -z "$SELF_PROGRAM_PUBKEY" ]; then
+    SELF_PROGRAM_PUBKEY="vamp1eWV3zyWNiRwC7rdiBznrN8nB8ML8uXGk2kg7cU"
+fi
+
+SYSTEM_PROGRAM_PUBKEY="11111111111111111111111111111111"
+VOTE_PROGRAM_PUBKEY="Vote111111111111111111111111111111111111111"
+CLOCK_SYSVAR_PUBKEY="SysvarC1ock11111111111111111111111111111111"
+MANAGER_ACCOUNT_PUBKEY=`solxact pda $SELF_PROGRAM_PUBKEY [ pubkey $VOTE_ACCOUNT ] 2>/dev/null | cut -d '.' -f 1`
+
+if [ -z "$MANAGER_ACCOUNT_PUBKEY" ]; then
+    echo
+    echo "ERROR: Failed to derive manager account address.  The supplied VOTE_ACCOUNT is not valid."
+    usage "$COMMAND"
+    exit 1
+fi
+
+
+# Handle commands
+case "$COMMAND" in
+
+    "enter")
+
+        ADMINISTRATOR_ACCOUNT=$1
+        MAX_COMMISSION=$2
+        MAX_COMMISSION_INCREASE_PER_EPOCH=$3
+
+        if [ -z "$MAX_COMMISSION" ]; then
+            USE_COMMISSION_CAPS=false
+            MAX_COMMISSION=0
+            MAX_COMMISSION_INCREASE_PER_EPOCH=0
+        else
+            USE_COMMISSION_CAPS=true
+            require enter $MAX_COMMISSION_INCREASE_PER_EPOCH
+        fi
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT w                                                                                   \
+            // Funding Account //                                                                                     \
+            account $FEE_PAYER ws                                                                                     \
+            // Current Withdraw Authority //                                                                          \
+            account $AUTHORITY s                                                                                      \
+            // System Program Id //                                                                                   \
+            account $SYSTEM_PROGRAM_PUBKEY                                                                            \
+            // Vote Program Id //                                                                                     \
+            account $VOTE_PROGRAM_PUBKEY                                                                              \
+            // Clock Sysvar Id //                                                                                     \
+            account $CLOCK_SYSVAR_PUBKEY                                                                              \
+            // Instruction code 0 = Enter //                                                                          \
+            u8 0                                                                                                      \
+            // Administrator //                                                                                       \
+            pubkey $ADMINISTRATOR_ACCOUNT                                                                             \
+            // Use Commission Caps //                                                                                 \
+            bool $USE_COMMISSION_CAPS                                                                                 \
+            // Max Commission //                                                                                      \
+            u8 $MAX_COMMISSION                                                                                        \
+            // Max Commission Increase Per Epoch //                                                                   \
+            u8 $MAX_COMMISSION_INCREASE_PER_EPOCH"
+        
+        ;;
+    
+    "set-leave-epoch")
+
+        LEAVE_EPOCH=$1
+
+        require set-leave-epoch $LEAVE_EPOCH
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT                                                                                     \
+            // Withdraw Authority //                                                                                  \
+            account $AUTHORITY s                                                                                      \
+            // Instruction code 1 = SetLeaveEpoch //                                                                  \
+            u8 1                                                                                                      \
+            // Leave Epoch //                                                                                         \
+            u64 $LEAVE_EPOCH"
+
+        ;;
+    
+    "leave")
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT w                                                                                   \
+            // Withdraw Authority //                                                                                  \
+            account $AUTHORITY s                                                                                      \
+            // Lamports Recipient -- assume fee payer //                                                              \
+            account $FEE_PAYER w                                                                                      \
+            // Vote Program Id //                                                                                     \
+            account $VOTE_PROGRAM_PUBKEY                                                                              \
+            // Clock Sysvar Id //                                                                                     \
+            account $CLOCK_SYSVAR_PUBKEY                                                                              \
+            // Instruction code 2 = Leave //                                                                          \
+            u8 2"
+        
+        ;;
+
+    "set-administrator")
+
+        NEW_ADMINISTRATOR=$1
+
+        require set-administrator $NEW_ADMINISTRATOR
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT                                                                                     \
+            // Withdraw Authority //                                                                                  \
+            account $AUTHORITY s                                                                                      \
+            // Instruction code 3 = SetAdministrator //                                                               \
+            u8 3                                                                                                      \
+            // New Administrator //                                                                                   \
+            pubkey $NEW_ADMINISTRATOR"
+
+        ;;
+    
+    "set-operational-authority")
+    
+        NEW_OPERATIONAL_AUTHORITY=$1
+
+        require set-operational-authority $NEW_OPERATIONAL_AUTHORITY
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT                                                                                     \
+            // Administrator //                                                                                       \
+            account $AUTHORITY s                                                                                      \
+            // Instruction code 4 = SetOperationalAuthority //                                                        \
+            u8 4                                                                                                      \
+            // New Operational Authority //                                                                           \
+            pubkey $NEW_OPERATIONAL_AUTHORITY"
+
+        ;;
+        
+    "set-rewards-authority")
+    
+        NEW_REWARDS_AUTHORITY=$1
+
+        require set-rewards-authority $NEW_REWARDS_AUTHORITY
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT                                                                                     \
+            // Administrator //                                                                                       \
+            account $AUTHORITY s                                                                                      \
+            // Instruction code 5 = SetRewardsAuthority //                                                            \
+            u8 5                                                                                                      \
+            // New Rewards Authority //                                                                               \
+            pubkey $NEW_REWARDS_AUTHORITY"
+
+        ;;
+        
+    "set-vote-authority")
+    
+        NEW_VOTE_AUTHORITY=$1
+
+        require set-vote-authority $NEW_VOTE_AUTHORITY
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT                                                                                     \
+            // Operational Authority //                                                                               \
+            account $AUTHORITY s                                                                                      \
+            // Vote Program Id //                                                                                     \
+            account $VOTE_PROGRAM_PUBKEY                                                                              \
+            // Clock Sysvar Id //                                                                                     \
+            account $CLOCK_SYSVAR_PUBKEY                                                                              \
+            // Instruction code 6 = SetVoteAuthority //                                                               \
+            u8 6                                                                                                      \
+            // New Vote Authority //                                                                                  \
+            pubkey $NEW_VOTE_AUTHORITY"
+
+        ;;
+        
+    "set-validator-identity")
+    
+        NEW_VALIDATOR_IDENTITY=$1
+
+        require set-validator-identity $NEW_VALIDATOR_IDENTITY
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT                                                                                     \
+            // Operational Authority //                                                                               \
+            account $AUTHORITY s                                                                                      \
+            // Vote Program Id //                                                                                     \
+            account $VOTE_PROGRAM_PUBKEY                                                                              \
+            // Instruction code 7 = SetValidatorIdentity //                                                           \
+            u8 7                                                                                                      \
+            // New Validator Identity //                                                                              \
+            pubkey $NEW_VALIDATOR_IDENTITY"
+
+        ;;
+        
+    "withdraw-rewards")
+
+        # Ensure dc program is in $PATH
+        if ! type dc >/dev/null 2>/dev/null; then
+            echo
+            echo "ERROR: dc program cannot be found in PATH.  Please install dc before using vamp."
+            echo
+            exit 1
+        fi
+
+        RECIPIENT_ACCOUNT=$1
+        SOL=$2
+
+        require withdraw-rewards $RECIPIENT_ACCOUNT
+
+        # If SOL is not provided, use 0, which will instruct the program to withdraw all available lamports
+        if [ -z "$SOL" ]; then
+            SOL=0
+        fi
+
+        # Convert SOL to lamports
+        LAMPORTS=`printf "%0.f" \`echo "$SOL 1000 * 1000 * 1000 * p | dc -\``
+        
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY                                                                           \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT w                                                                                   \
+            // Rewards Authority //                                                                                   \
+            account $AUTHORITY s                                                                                      \
+            // Recipient //                                                                                           \
+            account $RECIPIENT_ACCOUNT w                                                                              \
+            // Vote Program Id //                                                                                     \
+            account $VOTE_PROGRAM_PUBKEY                                                                              \
+            // Instruction code 8 = WithdrawRewards //                                                                \
+            u8 8                                                                                                      \
+            // Lamports //                                                                                            \
+            u64 $LAMPORTS"
+
+        ;;
+        
+    "set-commission")
+    
+        NEW_COMMISSION=$1
+
+        require set-commission $NEW_COMMISSION
+
+        tx "encoding c                                                                                                \
+            fee_payer $FEE_PAYER                                                                                      \
+            program $SELF_PROGRAM_PUBKEY                                                                              \
+            // Vote Account Manager State Account //                                                                  \
+            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            // Vote Account //                                                                                        \
+            account $VOTE_ACCOUNT w                                                                                   \
+            // Rewards Authority //                                                                                   \
+            account $AUTHORITY s                                                                                      \
+            // Vote Program Id //                                                                                     \
+            account $VOTE_PROGRAM_PUBKEY                                                                              \
+            // Instruction code 9 = SetCommission //                                                                  \
+            u8 9                                                                                                      \
+            // New Commission //                                                                                      \
+            u8 $NEW_COMMISSION"
+
+        ;;
+
+    "show")
+
+        # Ensure curl program is in $PATH
+        if ! type curl >/dev/null 2>/dev/null; then
+            echo
+            echo "ERROR: curl program cannot be found in PATH.  Please install curl before using vamp."
+            echo
+            exit 1
+        fi
+
+        # Ensure base64 program is in $PATH
+        if ! type base64 >/dev/null 2>/dev/null; then
+            echo
+            echo "ERROR: base64 program cannot be found in PATH.  Please install base64 before using vamp."
+            echo
+            exit 1
+        fi
+        
+        # Ensure od program is in $PATH
+        if ! type od >/dev/null 2>/dev/null; then
+            echo
+            echo "ERROR: od program cannot be found in PATH.  Please install od before using vamp."
+            echo
+            exit 1
+        fi
+        
+        # Ensure tr program is in $PATH
+        if ! type tr >/dev/null 2>/dev/null; then
+            echo
+            echo "ERROR: tr program cannot be found in PATH.  Please install tr before using vamp."
+            echo
+            exit 1
+        fi
+        
+        # First argument may be "json" to show in json format
+        if [ "$1" = "json" ]; then
+            JSON=1
+        else
+            JSON=
+        fi
+
+        ACCOUNT_DATA=`get_account_data $RPC_ENDPOINT $MANAGER_ACCOUNT_PUBKEY`
+
+        if [ -z "$ACCOUNT_DATA" ]; then
+            echo "$VOTE_ACCOUNT is not managed by the Vote Account Manager program" >&2
+            exit 1
+        fi
+
+        WITHDRAW_AUTHORITY=`get_data_pubkey 0 "$ACCOUNT_DATA"`
+        
+        ADMINISTRATOR=`get_data_pubkey 32 "$ACCOUNT_DATA"`
+        
+        OPERATIONAL_AUTHORITY=`get_data_pubkey 64 "$ACCOUNT_DATA"`
+        
+        REWARDS_AUTHORITY=`get_data_pubkey 96 "$ACCOUNT_DATA"`
+        
+        if [ `get_data_bool 128 "$ACCOUNT_DATA"` = "true" ]; then
+            MAX_COMMISSION=`get_data_u8 129 "$ACCOUNT_DATA"`
+            MAX_COMMISSION_INCREASE_PER_EPOCH=`get_data_u8 130 "$ACCOUNT_DATA"`
+        else
+            MAX_COMMISSION=
+        fi
+
+        LEAVE_EPOCH=`get_data_u64 144 "$ACCOUNT_DATA"`
+
+        if [ -z "$JSON" ]; then
+            echo
+            echo "Withdraw Authority: $WITHDRAW_AUTHORITY"
+            echo "Administrator: $ADMINISTRATOR"
+            echo "Operational Authority: $OPERATIONAL_AUTHORITY"
+            echo "Rewards Authority: $REWARDS_AUTHORITY"
+            if [ -n "$MAX_COMMISSION" ]; then
+                echo "Max Commission: $MAX_COMMISSION"
+                echo "Max Commission Increase per Epoch: $MAX_COMMISSION_INCREASE_PER_EPOCH"
+            fi
+            if [ 0$LEAVE_EPOCH -gt 0 ]; then
+                echo "Leave Epoch: $LEAVE_EPOCH"
+            fi
+            echo
+        else
+            echo -n '{"withdraw_authority":"'$WITHDRAW_AUTHORITY'","administrator":"'$ADMINISTRATOR'",'
+            echo -n '"operational_authority":"'$OPERATIONAL_AUTHORITY'","rewards_authority":"'$REWARDS_AUTHORITY'"'
+            if [ -n "$MAX_COMMISSION" ]; then
+                echo -n ',"max_commission":'$MAX_COMMISSION
+                echo -n ',"max_commission_increase_per_epoch":'$MAX_COMMISSION_INCREASE_PER_EPOCH
+            fi
+
+            if [ 0$LEAVE_EPOCH -gt 0 ]; then
+                echo -n ',"leave_epoch":'$LEAVE_EPOCH
+            fi
+
+            echo "}"
+        fi
+        
+        ;;
+        
+    "*")
+
+        usage
+        exit 0
+         
+        ;;
+         
+esac

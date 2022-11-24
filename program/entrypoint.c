@@ -16,7 +16,7 @@ typedef enum
     // # Account references
     //   0. `[WRITE]` Vote Account Manager state account, computed as the PDA of the vote account pubkey + bump seed
     //   1. `[WRITE]` The Vote Account to enter into the program
-    //   2. `[WRITE]` The account which will fund the creation of the Vote Account Manager state account
+    //   2. `[WRITE, SIGNER]` The account which will fund the creation of the Vote Account Manager state account
     //   3. `[SIGNER]` The current withdraw authority of the vote account
     //   4. `[]` The system program id
     //   5. `[]` The vote program id
@@ -24,9 +24,9 @@ typedef enum
     //
     // # Instruction data
     //   Instance of EnterInstructionData
-    Instruction_Enter,                        = 0,
+    Instruction_Enter                         = 0,
 
-    // Set the leave epoch.  This is only necessary if commission caps are being enforced.  When the LeaveEpoch is
+    // Set the leave epoch.  This is only necessary if commission caps are being enforced.  When the leave epoch is
     // set, the validator will not be allowed to change commission while managed by this program ever again, and will
     // not be allowed to Leave the program until the leave epoch.  Only the original vote account withdraw authority
     // may issue this instruction.
@@ -54,8 +54,8 @@ typedef enum
     //   5. `[]` The clock sysvar id
     //
     // # Instruction data
-    //   None
-    Instruction_Leave,                        = 2,
+    //   u8 2
+    Instruction_Leave                         = 2,
 
     // Sets the pubkey of the administrator.  Only the original vote account withdraw authority may issue this
     // instruction.
@@ -114,7 +114,7 @@ typedef enum
     //   4. `[]` The vote program id
     //
     // # Instruction data
-    //   None
+    //   u8 7
     Instruction_SetValidatorIdentity          = 7,
 
     // Withdraws lamports from the vote account, but always leaves at least the rent exempt minimum in the vote
@@ -134,7 +134,7 @@ typedef enum
     // Sets the commission of the vote account.  Only the rewards authority may issue this instruction.
     //
     // # Account references
-    //   0. `[]` Vote Account Manager state account, computed as the PDA of the vote account pubkey + bump seed
+    //   0. `[WRITE]` Vote Account Manager state account, computed as the PDA of the vote account pubkey + bump seed
     //   1. `[WRITE]` The Vote Account
     //   2. `[SIGNER]` The rewards authority
     //   3. `[]` The vote program id
@@ -154,21 +154,21 @@ typedef struct
 
     // The pubkey of the initial administrator, which is also initially the operational authority and rewards
     // authority
-    SolPubkey admininstrator;
+    SolPubkey administrator;
 
-    // If this is true, then the max_commission and max_commission_change_rate values are used to control
-    // commission changes by the validator.  If this is false, then the validator is not restricted by when and
-    // how it can change commission by this program and max_commission and max_commission_change_rate are ignored.
-    // Note that if this is true, then the Leave instruction cannot be executed until a LeaveEpoch has been set.
+    // If this is true, then the max_commission and max_commission_increase_per_epoch values are used to control
+    // commission changes by the validator.  If this is false, then the validator is not restricted by when and how it
+    // can change commission by this program and max_commission and max_commission_increase_per_epoch are ignored.
+    // Note that if this is true, then the Leave instruction cannot be executed until a leave epoch has been set.
     bool use_commission_caps;
 
     // If use_commission_caps is true, then this gives the maximum commission value that will be allowed in the
     // SetCommission instruction for this vote account.
     uint8_t max_commission;
 
-    // If use_commission_caps is true, then this gives the maximum change in commission that will be allowed per epoch
-    // for this vote account.
-    uint16_t max_commission_change_rate;
+    // If use_commission_caps is true, then this gives the maximum increase in commission that will be allowed per
+    // epoch for this vote account.
+    uint8_t max_commission_increase_per_epoch;
 
 } EnterInstructionData;
 
@@ -259,8 +259,14 @@ typedef enum
     // Attempt to set a leave epoch that is not at least one full epoch away
     Error_InvalidLeaveEpoch                   = 1009,
 
+    // Attempt to leave when a leave epoch is required but has not been set
+    Error_LeaveEpochNotSet                    = 1010,
+
+    // Attempt to leave before the leave epoch
+    Error_CannotLeaveYet                      = 1011,
+
     // Attempt to set commission to a value that would exceed the allowed commission increase rate
-    Error_CommissionChangeTooLarge            = 1010,
+    Error_CommissionChangeTooLarge            = 1012,
 
     // Errors Error_InvalidAccount_First through Error_InvalidAccount_Last are used to indicate an error in input
     // account, where the specific account that was faulty is the offset from Error_InvalidAccount_First
@@ -288,7 +294,7 @@ typedef struct
     // The withdraw authority at the time that the program was entered; this withdraw authority retains the ability to
     // set the administrator and to leave the program but possesses no other authority over the vote account while the
     // account is in the program
-    SolPubkey original_withdraw_authority;
+    SolPubkey withdraw_authority;
 
     // The administrator has rights to set the operational authority and rewards authority
     SolPubkey administrator;
@@ -300,9 +306,9 @@ typedef struct
     SolPubkey rewards_authority;
 
     // If this is true, then the max_commission and max_commission_increase_rate values are used to control commission
-    // changes by the validator, and the validator will not be allowed to Leave the program until it has set a
-    // LeaveEpoch, and until that LeaveEpoch.  If this is false, the no commission caps are enforced and the validator
-    // can Leave the program at any time.
+    // changes by the validator, and the validator will not be allowed to Leave the program until it has set a leave
+    // epoch, and until that leave epoch.  If this is false, the no commission caps are enforced and the validator can
+    // Leave the program at any time.
     bool use_commission_caps;
 
     // If use_commission_caps is true, then this gives the maximum commission value that will be allowed in the
@@ -324,15 +330,15 @@ typedef struct
     uint8_t commission_change_epoch_original_commission;
 
     // If use_commission_caps is true, then the vote account cannot Leave this program until the leave epoch, which is
-    // set by the SetLeaveEpoch instruction.  This is 0 before being set to a valid leave epoch.  If
-    // use_commission_caps is false, then the meaning of this value is undefined.
+    // set by the leave epoch instruction.  This is 0 before being set to a valid leave epoch.  If use_commission_caps
+    // is false, then the meaning of this value is undefined.
     uint64_t leave_epoch;
 
 } VoteAccountManagerState;
 
 
 // --------------------------------------------------------------------------------------------------------------------
-// Internal functions and macros used by public entrypoints
+// Internal structures, functions, and macros used by public entrypoints
 // --------------------------------------------------------------------------------------------------------------------
 
 static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds *singer_seeds);
@@ -346,8 +352,63 @@ static uint64_t process_set_validator_identity(const SolParameters *params, cons
 static uint64_t process_withdraw_rewards(const SolParameters *params, const SolSignerSeeds *singer_seeds);
 static uint64_t process_set_commission(const SolParameters *params, const SolSignerSeeds *singer_seeds);
 
+
 // Macro that computes the number of elements in a static array
 #define ARRAY_LEN(a) (sizeof(a) / sizeof(*a))
+
+
+// These are constant values that the program can use.  An instance of _Constants is initialized by entrypoint and
+// passed to all instruction entrypoints.
+typedef struct
+{
+    // This constant ensures that data conforming to the "Solana Security.txt" format is present in the binary.
+    // See: https://github.com/neodyme-labs/solana-security-txt
+    const char security_txt[319];
+
+    // This is the Vote Account Manager program pubkey.  It is the account address that actually stores this program.
+    SolPubkey self_program_pubkey;
+
+    // This is the system program pubkey
+    SolPubkey system_program_pubkey;
+
+    // This is the vote program pubkey
+    SolPubkey vote_program_pubkey;
+
+    // This is the clock sysvar pubkey
+    SolPubkey clock_sysvar_pubkey;
+
+} _Constants;
+
+
+// The _ARRAY values are provided at compile time on the command line
+static const _Constants Constants =
+{
+    // security_txt
+    "=======BEGIN SECURITY.TXT V1=======\0"
+    "name\0Vote Account Manager\0"
+    "project_url\0https://github.com/bji/vote-account-manager\0"
+    "contacts\0email:shinobisystems@yahoo.com\0"
+    "policy\0https://github.com/bji/vote-account-manager/security_policy.txt\0"
+    "source_code\0https://github.com/bji/vote-account-manager\0"
+    "=======END SECURITY.TXT V1=======\0",
+
+    // Vote Account Manager program_pubkey
+    SELF_PROGRAM_PUBKEY_ARRAY,
+
+    // system_program_pubkey
+    SYSTEM_PROGRAM_PUBKEY_ARRAY,
+
+    // vote_program_pubkey
+    VOTE_PROGRAM_PUBKEY_ARRAY,
+
+    // clock_sysvar_pubkey
+    CLOCK_SYSVAR_PUBKEY_ARRAY
+};
+
+
+// solana_sdk misses "const" in many places, so de-const to avoid compiler warnings.  The Constants instance is in a
+// read-only data section and instructions which modify it actually have no effect.
+#define Constants (* ((_Constants *) &Constants))
 
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -386,7 +447,7 @@ uint64_t entrypoint(const uint8_t *input)
     const SolAccountInfo *vote_account = &(params.ka[1]);
 
     // The vote account must be a valid, existing vote account
-    if ((vote_account->data_size == 0) || !SolPubkey_same(vote_account->owner, &(Constants.vote_program_pubkey))) {
+    if ((vote_account->data_len == 0) || !SolPubkey_same(vote_account->owner, &(Constants.vote_program_pubkey))) {
         return Error_InvalidAccount_First + 1;
     }
 
@@ -399,8 +460,8 @@ uint64_t entrypoint(const uint8_t *input)
     uint8_t bump_seed;
 
     // The program derived address seeds; the bump_seed will be derived
-    SolSignerSeed seeds[] = { { vote_account->key, sizeof(SolPubkey) },
-                              { &bump_seed, sizeof(bump_seed) } };
+    SolSignerSeed seeds[] = { { (const uint8_t *) vote_account->key, sizeof(SolPubkey) },
+                              { (const uint8_t *) &bump_seed, sizeof(bump_seed) } };
 
     // Only the first seed (vote account pubkey) is used when trying to find the address.  The second seed is the
     // bump_seed, which is filled in by this function call.
@@ -426,7 +487,7 @@ uint64_t entrypoint(const uint8_t *input)
     // Else the manager account must be owned by this program, and exist with enough data to be big enough to hold an
     // instance of VoteAccountManagerState
     else if ((manager_account->data_len < sizeof(VoteAccountManagerState)) ||
-             !SolPubkey_same(manager_account->owner, &(Constants.this_program_pubkey))) {
+             !SolPubkey_same(manager_account->owner, &(Constants.self_program_pubkey))) {
         return Error_InvalidAccount_First;
     }
 
@@ -485,34 +546,12 @@ void *memcpy(void *dst, const void *src, int len)
 // --------------------------------------------------------------------------------------------------------------------
 
 
-// Function missing from solana_sdk.h
+// Functions missing from solana_sdk.h
+extern uint64_t sol_get_clock_sysvar(void *ret);
 extern uint64_t sol_get_rent_sysvar(void *ret);
 
 
 // Private structure definitions -------------------------------------------------------------------------------------
-
-// These are constant values that the program can use.  An instance of _Constants is initialized by entrypoint and
-// passed to all instruction entrypoints.
-typedef struct
-{
-    // This constant ensures that data conforming to the "Solana Security.txt" format is present in the binary.
-    // See: https://github.com/neodyme-labs/solana-security-txt
-    const char security_txt[319];
-
-    // This is the Vote Account Manager program pubkey.  It is the account address that actually stores this program.
-    SolPubkey self_program_pubkey;
-
-    // This is the system program pubkey
-    SolPubkey system_program_pubkey;
-
-    // This is the vote program pubkey
-    SolPubkey vote_program_pubkey;
-
-    // This is the clock sysvar pubkey
-    SolPubkey clock_sysvar_pubkey;
-
-} _Constants;
-
 
 // These are identifiers of all "known accounts" which are accounts at fixed account addresses
 typedef enum
@@ -520,7 +559,7 @@ typedef enum
     KnownAccount_NotKnown,               // Not a known account
     KnownAccount_SelfProgram,            // The vote-account-manager program itself
     KnownAccount_SystemProgram,          // The system program
-    Knownaccount_VoteProgram,            // The vote program
+    KnownAccount_VoteProgram,            // The vote program
     KnownAccount_ClockSysvar             // The clock sysvar
 
 } KnownAccount;
@@ -544,6 +583,22 @@ typedef enum
 } AccountSigner;
 
 
+// Data structure stored in the Clock sysvar
+typedef struct __attribute__((__packed__))
+{
+    uint64_t slot;
+
+    int64_t epoch_start_timestamp;
+
+    uint64_t epoch;
+
+    uint64_t leader_schedule_epoch;
+
+    int64_t unix_timestamp;
+
+} Clock;
+
+
 // Data structure stored in the Rent sysvar
 typedef struct __attribute__((__packed__))
 {
@@ -556,7 +611,7 @@ typedef struct __attribute__((__packed__))
 } Rent;
 
 
-// bincode serialized.  This is only the needed fields.
+// Data structure stored in a vote account.  This is only the needed fields.
 typedef struct __attribute__((__packed__))
 {
     SolPubkey node_pubkey;
@@ -599,7 +654,7 @@ typedef struct __attribute__((__packed__))
 } SystemAssignData;
 
 
-// bincode serialized
+// To be used as data to pass to the vote program when invoking Authorize
 typedef struct __attribute__((__packed__))
 {
     uint32_t enum_index; // 1 for Authorize
@@ -611,7 +666,7 @@ typedef struct __attribute__((__packed__))
 } VoteAuthorizeData;
 
 
-// bincode serialized
+// To be used as data to pass to the vote program when invoking Withdraw
 typedef struct __attribute__((__packed__))
 {
     uint32_t enum_index; // 3 for Withdraw
@@ -621,47 +676,14 @@ typedef struct __attribute__((__packed__))
 } VoteWithdrawData;
 
 
-// bincode serialized
+// To be used as data to pass to the vote program when invoking UpdateCommission
 typedef struct __attribute__((__packed__))
 {
     uint32_t enum_index; // 5 for UpdateCommission
 
     uint8_t lamports;
 
-} VoteSetCommissionData;
-
-
-// Constant values ----------------------------------------------------------------------------------------------------
-
-// The _ARRAY values are provided at compile time on the command line
-static const _Constants Constants =
-{
-    // security_txt
-    "=======BEGIN SECURITY.TXT V1=======\0"
-    "name\0Vote Account Manager\0"
-    "project_url\0https://github.com/bji/vote-account-manager\0"
-    "contacts\0email:shinobisystems@yahoo.com\0"
-    "policy\0https://github.com/bji/vote-account-manager/security_policy.txt\0"
-    "source_code\0https://github.com/bji/vote-account-manager\0"
-    "=======END SECURITY.TXT V1=======\0",
-
-    // Vote Account Manager program_pubkey
-    SELF_PROGRAM_PUBKEY_ARRAY,
-
-    // system_program_pubkey
-    SYSTEM_PROGRAM_PUBKEY_ARRAY,
-
-    // vote_program_pubkey
-    VOTE_PROGRAM_PUBKEY_ARRAY,
-
-    // clock_sysvar_pubkey
-    CLOCK_SYSVAR_PUBKEY_ARRAY
-};
-
-
-// solana_sdk misses "const" in many places, so de-const to avoid compiler warnings.  The Constants instance is in a
-// read-only data section and instructions which modify it actually have no effect.
-#define Constants (* ((_Constants *) &Constants))
+} VoteUpdateCommissionData;
 
 
 // Account helpers ----------------------------------------------------------------------------------------------------
@@ -716,6 +738,15 @@ static bool check_known_account(const SolAccountInfo *account, KnownAccount know
 
     return SolPubkey_same(account->key, known_pubkey);
 }
+
+
+// Ensures that the instruction's data is exactly sized for the given structure type, and if not, returns an
+// error; if the size is correct, casts the instruction data to a const variable
+#define DECLARE_DATA(type, variable)                                                                                   \
+    if ((params->data_len) != sizeof(type)) {                                                                          \
+        return Error_InvalidDataSize;                                                                                  \
+    }                                                                                                                  \
+    const type *variable = (type *) params->data
 
 
 // Computes rent exempt minimum lamports for a given account size.  This may overestimate slightly.
@@ -784,7 +815,7 @@ static bool get_vote_account_commission(const SolAccountInfo *vote_account, uint
 // Processes an Enter instruction.  Note that entrypoint already guaranteed that the manager_account doesn't exist as
 // a manager account yet, and that vote_account has data and is owned by the vote program, and that manager_account is
 // the correct Vote Account Manager state account for vote_account.
-static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -798,13 +829,8 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
     }
     DECLARE_ACCOUNTS_NUMBER(7);
 
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(EnterInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const EnterInstructionData *instruction_data = (const EnterInstructionData *) params->data;
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(EnterInstructionData, instruction_data);
 
     // Enforce validity of instruction data
     if (instruction_data->use_commission_caps) {
@@ -813,7 +839,7 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
             return Error_InvalidData_First + 5;
         }
         // Max commission change rate > 100 is nonsensical
-        if (instruction_data->max_commission_change_rate > 100) {
+        if (instruction_data->max_commission_increase_per_epoch > 100) {
             return Error_InvalidData_First + 6;
         }
 
@@ -833,6 +859,8 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 
     // Fund the manager account
     if (*(manager_account->lamports) < rent_exempt_minimum) {
+        sol_log("Funding");
+
         uint64_t lamports = rent_exempt_minimum - *(manager_account->lamports);
 
         SolInstruction instruction;
@@ -853,7 +881,7 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         instruction.data = (uint8_t *) &data;
         instruction.data_len = sizeof(data);
 
-        ret = sol_invoke(&instruction, params->ka, params->ka_num);
+        uint64_t ret = sol_invoke(&instruction, params->ka, params->ka_num);
         if (ret) {
             return ret;
         }
@@ -861,8 +889,11 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 
     // Allocate space for the account
     if (manager_account->data_len < sizeof(VoteAccountManagerState)) {
+        sol_log("Allocating");
+
         // If the account is owned by the system program, then use the system Alloc instruction to allocate space
         if (SolPubkey_same(manager_account->owner, &(Constants.system_program_pubkey))) {
+            sol_log("Allocating 1");
             SolInstruction instruction;
 
             instruction.program_id = &(Constants.system_program_pubkey);
@@ -874,7 +905,7 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
             instruction.accounts = account_metas;
             instruction.account_len = ARRAY_LEN(account_metas);
 
-            SystemAllocateData data = { 8, space };
+            SystemAllocateData data = { 8, sizeof(VoteAccountManagerState) };
 
             instruction.data = (uint8_t *) &data;
             instruction.data_len = sizeof(data);
@@ -888,20 +919,24 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         // failed), so realloc the data segment so that the newly sized data segment is available.  Setting the 64 bit
         // value immediately preceeding the account is how this is accomplished.
         else {
-            ((uint64_t *) (manager_account->data))[-1] = size;
+            sol_log("Allocating 2");
 
-            manager_account->data_len = size;
+            ((uint64_t *) (manager_account->data))[-1] = sizeof(VoteAccountManagerState);
+
+            manager_account->data_len = sizeof(VoteAccountManagerState);
         }
     }
 
     // Assign the manager account ownership
     if (!SolPubkey_same(manager_account->owner, &(Constants.self_program_pubkey))) {
+        sol_log("Assigning");
+
         SolInstruction instruction;
 
         instruction.program_id = &(Constants.system_program_pubkey);
 
-        // This will only succeed if the existing owner is the system program; if it's any other program, this
-        // will fail
+        // This will only succeed if the existing owner is the system program; if it's any other program, this will
+        // fail
         SolAccountMeta account_metas[] =
               ///   0. `[WRITE, SIGNER]` Assigned account public key
             { { /* pubkey */ manager_account->key, /* is_writable */ true, /* is_signer */ true } };
@@ -909,7 +944,7 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         instruction.accounts = account_metas;
         instruction.account_len = ARRAY_LEN(account_metas);
 
-        SystemAssignData data = { 1, *(manager_account->key) };
+        SystemAssignData data = { 1, Constants.self_program_pubkey };
 
         instruction.data = (uint8_t *) &data;
         instruction.data_len = sizeof(data);
@@ -920,8 +955,8 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         }
     }
 
-    // Use the vote program to set the vote account withdraw authority to the manager account, which then allows
-    // only this program to sign as withdraw authority on instructions for the vote account
+    // Use the vote program to set the vote account withdraw authority to the manager account, which then allows only
+    // this program to sign as withdraw authority on instructions for the vote account
     SolInstruction instruction;
 
     instruction.program_id = &(Constants.vote_program_pubkey);
@@ -942,24 +977,26 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
     instruction.data = (uint8_t *) &data;
     instruction.data_len = sizeof(data);
 
-    ret = sol_invoke(&instruction, params->ka, params->ka_num);
+    uint64_t ret = sol_invoke(&instruction, params->ka, params->ka_num);
     if (ret) {
         return ret;
     }
 
     // Save the manager account state
-    (* (VoteAccountManagerState *) manager_account->data) = {
-        *(withdraw_authority->key),
-        *(instruction_data->administrator),
-        *(instruction_data->administrator),
-        *(instruction_data->administrator),
-        instruction_data->use_commission_caps,
-        instruction_data->max_commission,
-        instruction_data->max_commission_increase_per_epoch,
-        0, // commission_change_epoch
-        0, // commission_change_epoch_original_commission
-        0  // leave_epoch
-    };
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
+
+    manager_account_state->withdraw_authority = *(withdraw_authority->key);
+    manager_account_state->administrator = instruction_data->administrator;
+    manager_account_state->operational_authority = instruction_data->administrator;
+    manager_account_state->rewards_authority = instruction_data->administrator;
+    manager_account_state->use_commission_caps = instruction_data->use_commission_caps;
+    if (instruction_data->use_commission_caps) {
+        manager_account_state->max_commission = instruction_data->max_commission;
+        manager_account_state->max_commission_increase_per_epoch = instruction_data->max_commission_increase_per_epoch;
+    }
+    manager_account_state->commission_change_epoch = 0;
+    manager_account_state->commission_change_epoch_original_commission = 0;
+    manager_account_state->leave_epoch = 0;
 
     return 0;
 }
@@ -968,7 +1005,7 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 // Processes a SetLeaveEpoch instruction.  Note that entrypoint already guaranteed that the manager_account exists as
 // a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -978,11 +1015,14 @@ static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSi
     }
     DECLARE_ACCOUNTS_NUMBER(2);
 
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(SetLeaveEpochInstructionData, instruction_data);
+
     // This is the vote account manager state
-    const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided withdraw authority is the withdraw authority that was saved in the manager account
-    if (!SolPubkey_same(&(manager_account_state->original_withdraw_authority), withdraw_authority->key)) {
+    if (!SolPubkey_same(&(manager_account_state->withdraw_authority), withdraw_authority->key)) {
         return Error_InvalidAccount_First + 2;
     }
 
@@ -991,20 +1031,12 @@ static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSi
         return Error_LeaveEpochAlreadySet;
     }
 
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(SetLeaveEpochInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetLeaveEpochInstructionData *instruction_data = (const SetLeaveEpochInstructionData *) params->data;
-
     // Ensure that the leave epoch is at least 1 full epoch beyond the current epoch
     Clock clock;
     if (sol_get_clock_sysvar(&clock)) {
         return Error_FailedToGetClock;
     }
-    if (instruction_data->leave_epoch < (clock->epoch + 2)) {
+    if (instruction_data->leave_epoch < (clock.epoch + 2)) {
         return Error_InvalidLeaveEpoch;
     }
 
@@ -1018,7 +1050,7 @@ static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSi
 // Processes a Leave instruction.  Note that entrypoint already guaranteed that the manager_account exists as a
 // manager account already, and that vote_account has data and is owned by the vote program, and that manager_account
 // is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1035,12 +1067,12 @@ static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds 
     const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided withdraw authority is the withdraw authority that was saved in the manager account
-    if (!SolPubkey_same(&(manager_account_state->original_withdraw_authority), withdraw_authority->key)) {
+    if (!SolPubkey_same(&(manager_account_state->withdraw_authority), withdraw_authority->key)) {
         return Error_InvalidAccount_First + 3;
     }
 
-    // If commission change limits are in effect, then check to make sure that the LeaveEpoch has been set and that
-    // the current epoch is at least the LeaveEpoch.  This gives stakers an epoch to take action should they want to.
+    // If commission change limits are in effect, then check to make sure that the leave epoch has been set and that
+    // the current epoch is at least the leave epoch.  This gives stakers an epoch to take action should they want to.
     if (manager_account_state->use_commission_caps) {
         if (manager_account_state->leave_epoch == 0) {
             return Error_LeaveEpochNotSet;
@@ -1051,7 +1083,7 @@ static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds 
             return Error_FailedToGetClock;
         }
 
-        if (clock->epoch < manager_account_state->leave_epoch) {
+        if (clock.epoch < manager_account_state->leave_epoch) {
             return Error_CannotLeaveYet;
         }
     }
@@ -1072,12 +1104,12 @@ static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds 
     instruction.accounts = account_metas;
     instruction.account_len = ARRAY_LEN(account_metas);
 
-    VoteAuthorizeData data = { 1, *(manager_account->key), 1 };
+    VoteAuthorizeData data = { 1, manager_account_state->withdraw_authority, 1 };
 
     instruction.data = (uint8_t *) &data;
     instruction.data_len = sizeof(data);
 
-    ret = sol_invoke_signed(&instruction, params->ka, params->ka_num, signer_seeds, 1);
+    uint64_t ret = sol_invoke_signed(&instruction, params->ka, params->ka_num, signer_seeds, 1);
     if (ret) {
         return ret;
     }
@@ -1093,7 +1125,7 @@ static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds 
 // Processes a SetAdministrator instruction.  Note that entrypoint already guaranteed that the manager_account exists
 // as a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_administrator(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_administrator(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1103,21 +1135,16 @@ static uint64_t process_set_administrator(const SolParameters *params, const Sol
     }
     DECLARE_ACCOUNTS_NUMBER(3);
 
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(SetAuthorityInstructionData, instruction_data);
+
     // This is the vote account manager state
-    const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided withdraw authority is the withdraw authority that was saved in the manager account
-    if (!SolPubkey_same(&(manager_account_state->original_withdraw_authority), withdraw_authority->key)) {
+    if (!SolPubkey_same(&(manager_account_state->withdraw_authority), withdraw_authority->key)) {
         return Error_InvalidAccount_First + 2;
     }
-
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(SetAuthorityInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
 
     // Overwrite the administrator pubkey
     manager_account_state->administrator = instruction_data->authority;
@@ -1129,7 +1156,7 @@ static uint64_t process_set_administrator(const SolParameters *params, const Sol
 // Processes a SetOperationalAuthority instruction.  Note that entrypoint already guaranteed that the manager_account
 // exists as a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_operational_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_operational_authority(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1139,21 +1166,16 @@ static uint64_t process_set_operational_authority(const SolParameters *params, c
     }
     DECLARE_ACCOUNTS_NUMBER(3);
 
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(SetAuthorityInstructionData, instruction_data);
+
     // This is the vote account manager state
-    const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided administrator is the administrator that was saved in the manager account
     if (!SolPubkey_same(&(manager_account_state->administrator), administrator->key)) {
         return Error_InvalidAccount_First + 2;
     }
-
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(SetAuthorityInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
 
     // Overwrite the operational authority pubkey
     manager_account_state->operational_authority = instruction_data->authority;
@@ -1165,7 +1187,7 @@ static uint64_t process_set_operational_authority(const SolParameters *params, c
 // Processes a SetRewardsAuthority instruction.  Note that entrypoint already guaranteed that the manager_account
 // exists as a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_rewards_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_rewards_authority(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1175,21 +1197,16 @@ static uint64_t process_set_rewards_authority(const SolParameters *params, const
     }
     DECLARE_ACCOUNTS_NUMBER(3);
 
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(SetAuthorityInstructionData, instruction_data);
+
     // This is the vote account manager state
-    const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided administrator is the administrator that was saved in the manager account
     if (!SolPubkey_same(&(manager_account_state->administrator), administrator->key)) {
         return Error_InvalidAccount_First + 2;
     }
-
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(SetAuthorityInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
 
     // Overwrite the rewards authority pubkey
     manager_account_state->rewards_authority = instruction_data->authority;
@@ -1201,7 +1218,7 @@ static uint64_t process_set_rewards_authority(const SolParameters *params, const
 // Processes a SetVoteAuthority instruction.  Note that entrypoint already guaranteed that the manager_account exists
 // as a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_vote_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_vote_authority(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1213,20 +1230,15 @@ static uint64_t process_set_vote_authority(const SolParameters *params, const So
     }
     DECLARE_ACCOUNTS_NUMBER(5);
 
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(SetAuthorityInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetAuthorityInstructionData *instruction_data = (const SetAuthorityInstructionData *) params->data;
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(SetAuthorityInstructionData, instruction_data);
 
     // This is the vote account manager state
-    const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided operational authority is the operational authority of the manager account
     if (!SolPubkey_same(&(manager_account_state->operational_authority), operational_authority->key)) {
-        return Error_InvalidAccount_First + 3;
+        return Error_InvalidAccount_First + 2;
     }
 
     // Issue a vote Authorize instruction to authorize the voter
@@ -1245,7 +1257,7 @@ static uint64_t process_set_vote_authority(const SolParameters *params, const So
     instruction.accounts = account_metas;
     instruction.account_len = ARRAY_LEN(account_metas);
 
-    VoteAuthorizeData data = { 1, instruction_data->vote_authority, 0 };
+    VoteAuthorizeData data = { 1, instruction_data->authority, 0 };
 
     instruction.data = (uint8_t *) &data;
     instruction.data_len = sizeof(data);
@@ -1257,7 +1269,7 @@ static uint64_t process_set_vote_authority(const SolParameters *params, const So
 // Processes a SetValidatorIdentity instruction.  Note that entrypoint already guaranteed that the manager_account
 // exists as a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_validator_identity(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_validator_identity(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1269,21 +1281,15 @@ static uint64_t process_set_validator_identity(const SolParameters *params, cons
     }
     DECLARE_ACCOUNTS_NUMBER(5);
 
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(WithdrawRewardsInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetValidatorIdentityInstructionData *instruction_data =
-        (const SetValidatorIdentityInstructionData *) params->data;
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(WithdrawRewardsInstructionData, instruction_data);
 
     // This is the vote account manager state
     const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided operational authority is the operational authority of the manager account
     if (!SolPubkey_same(&(manager_account_state->operational_authority), operational_authority->key)) {
-        return Error_InvalidAccount_First + 3;
+        return Error_InvalidAccount_First + 2;
     }
 
     // Issue a vote UpdateValidatorIdentity instruction to authorize the voter
@@ -1312,7 +1318,7 @@ static uint64_t process_set_validator_identity(const SolParameters *params, cons
 // Processes a WithdrawRewards instruction.  Note that entrypoint already guaranteed that the manager_account exists
 // as a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_withdraw_rewards(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_withdraw_rewards(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1324,20 +1330,15 @@ static uint64_t process_withdraw_rewards(const SolParameters *params, const SolS
     }
     DECLARE_ACCOUNTS_NUMBER(5);
 
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(WithdrawRewardsInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const WithdrawRewardsInstructionData *instruction_data = (const WithdrawRewardsInstructionData *) params->data;
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(WithdrawRewardsInstructionData, instruction_data);
 
     // This is the vote account manager state
     const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided rewards authority is the rewards authority of the manager account
     if (!SolPubkey_same(&(manager_account_state->rewards_authority), rewards_authority->key)) {
-        return Error_InvalidAccount_First + 3;
+        return Error_InvalidAccount_First + 2;
     }
 
     // Compute maximum lamports that may be withdrawn from the vote account
@@ -1359,9 +1360,16 @@ static uint64_t process_withdraw_rewards(const SolParameters *params, const SolS
     else if (instruction_data->lamports > maximum_allowed_lamports) {
         return Error_InsufficientLamports;
     }
-    // Else, withdraw the requested lamports, since it is provided and valid
+    // Else, withdraw the requested lamports, since it is specified and valid
     else {
         lamports_to_withdraw = instruction_data->lamports;
+    }
+
+    // If lamports_to_withdraw is 0, then return an error.  This allows attempting to issue a withdraw without first
+    // ensuring that there are no rewards to withdraw, when then fails in simulate, preventing any tx fee from being
+    // paid for a no-op
+    if (lamports_to_withdraw == 0) {
+        return Error_InsufficientLamports;
     }
 
     // Issue a vote withdraw instruction to withdraw the lamports from the vote account
@@ -1392,31 +1400,26 @@ static uint64_t process_withdraw_rewards(const SolParameters *params, const SolS
 // Processes a SetCommission instruction.  Note that entrypoint already guaranteed that the manager_account exists as
 // a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_set_commission(const SolParameters *params, const SolSignerSeeds *singer_seeds)
+static uint64_t process_set_commission(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
-        DECLARE_ACCOUNT(0,   manager_account,               ReadOnly,   NotSigner,  KnownAccount_NotKnown);
+        DECLARE_ACCOUNT(0,   manager_account,               ReadWrite,  NotSigner,  KnownAccount_NotKnown);
         DECLARE_ACCOUNT(1,   vote_account,                  ReadWrite,  NotSigner,  KnownAccount_NotKnown);
         DECLARE_ACCOUNT(2,   rewards_authority,             ReadOnly,   Signer,     KnownAccount_NotKnown);
         DECLARE_ACCOUNT(3,   vote_program_id,               ReadOnly,   NotSigner,  KnownAccount_VoteProgram);
     }
     DECLARE_ACCOUNTS_NUMBER(4);
 
-    // Ensure that the instruction data is the correct size
-    if (params->data_len != sizeof(SetCommissionInstructionData)) {
-        return Error_InvalidDataSize;
-    }
-
-    // Cast instruction data
-    const SetCommissionInstructionData *instruction_data = (const SetCommissionInstuctionData *) params->data;
+    // instruction_data will be set to the input data if it is of the correct size
+    DECLARE_DATA(SetCommissionInstructionData, instruction_data);
 
     // This is the vote account manager state
-    const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
+    VoteAccountManagerState *manager_account_state = (VoteAccountManagerState *) manager_account->data;
 
     // Ensure that the provided rewards authority is the rewards authority of the manager account
     if (!SolPubkey_same(&(manager_account_state->rewards_authority), rewards_authority->key)) {
-        return Error_InvalidAccount_First + 3;
+        return Error_InvalidAccount_First + 2;
     }
 
     // If commission caps are being enforced, then check to make sure that there are no violations
@@ -1438,8 +1441,8 @@ static uint64_t process_set_commission(const SolParameters *params, const SolSig
 
         // If the commission change epoch is less than the current epoch, then set commission_change_epoch and
         // commission_change_epoch_original_commission.
-        if (manager_account_state->commission_change_epoch < clock->epoch) {
-            manager_account_state->commission_change_epoch = clock->epoch;
+        if (manager_account_state->commission_change_epoch < clock.epoch) {
+            manager_account_state->commission_change_epoch = clock.epoch;
             if (!get_vote_account_commission
                 (vote_account, &(manager_account_state->commission_change_epoch_original_commission))) {
                 return Error_InvalidAccount_First + 1;
@@ -1447,9 +1450,8 @@ static uint64_t process_set_commission(const SolParameters *params, const SolSig
         }
 
         // If the commission change is too large, then the change is not allowed
-        uint16_t max_allowed_commission =
-            (uint16_t) manager_account_state->commission_change_epoch_original_commission +
-            (uint16_t) instruction_data->max_commission_increase_per_epoch;
+        uint8_t max_allowed_commission = (manager_account_state->commission_change_epoch_original_commission +
+                                          manager_account_state->max_commission_increase_per_epoch);
 
         if (max_allowed_commission > 100) {
             max_allowed_commission = 100;
@@ -1474,7 +1476,7 @@ static uint64_t process_set_commission(const SolParameters *params, const SolSig
     instruction.accounts = account_metas;
     instruction.account_len = ARRAY_LEN(account_metas);
 
-    VoteSetCommissionData data = { 5, instruction_data->commission };
+    VoteUpdateCommissionData data = { 5, instruction_data->commission };
 
     instruction.data = (uint8_t *) &data;
     instruction.data_len = sizeof(data);
