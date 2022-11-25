@@ -67,6 +67,8 @@ function sleep_until_epoch ()
         sleep 5
         CURRENT_EPOCH=`current_epoch`
         if [ $CURRENT_EPOCH == $1 ]; then
+            # Just to be sure that the epoch is here, sleep once more
+            sleep 5
             break
         fi
         echo "Waiting until epoch $1"
@@ -279,6 +281,8 @@ export STAKE_ACCOUNT_KEYPAIR=$LEDGER/stake_account.json
 source $SOURCE/test/test_enter
 
 source $SOURCE/test/test_set_leave_epoch
+
+source $SOURCE/test/test_leave
 
 
 # Tear down

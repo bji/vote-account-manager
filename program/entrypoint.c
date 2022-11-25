@@ -864,8 +864,6 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 
     // Fund the manager account
     if (*(manager_account->lamports) < rent_exempt_minimum) {
-        sol_log("Funding");
-
         uint64_t lamports = rent_exempt_minimum - *(manager_account->lamports);
 
         SolInstruction instruction;
@@ -894,11 +892,8 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 
     // Allocate space for the account
     if (manager_account->data_len < sizeof(VoteAccountManagerState)) {
-        sol_log("Allocating");
-
         // If the account is owned by the system program, then use the system Alloc instruction to allocate space
         if (SolPubkey_same(manager_account->owner, &(Constants.system_program_pubkey))) {
-            sol_log("Allocating 1");
             SolInstruction instruction;
 
             instruction.program_id = &(Constants.system_program_pubkey);
@@ -924,8 +919,6 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         // failed), so realloc the data segment so that the newly sized data segment is available.  Setting the 64 bit
         // value immediately preceeding the account is how this is accomplished.
         else {
-            sol_log("Allocating 2");
-
             ((uint64_t *) (manager_account->data))[-1] = sizeof(VoteAccountManagerState);
 
             manager_account->data_len = sizeof(VoteAccountManagerState);
@@ -934,8 +927,6 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 
     // Assign the manager account ownership
     if (!SolPubkey_same(manager_account->owner, &(Constants.self_program_pubkey))) {
-        sol_log("Assigning");
-
         SolInstruction instruction;
 
         instruction.program_id = &(Constants.system_program_pubkey);
@@ -1079,7 +1070,7 @@ static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds 
 
     // Ensure that the provided withdraw authority is the withdraw authority that was saved in the manager account
     if (!SolPubkey_same(&(manager_account_state->withdraw_authority), withdraw_authority->key)) {
-        return Error_InvalidAccount_First + 3;
+        return Error_InvalidAccount_First + 2;
     }
 
     // If commission change limits are in effect, then check to make sure that the leave epoch has been set and that

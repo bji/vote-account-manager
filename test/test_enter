@@ -1,314 +1,295 @@
 
 
 # Short data -- no instruction code
-if should_run_test enter_short_data; then
-    assert_fail enter_short_data                                                                                      \
-    '{"Custom":1001}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $WITHDRAWER_KEYPAIR s                                                                              \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY"                                                                              \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-fi
+assert_fail enter_short_data                                                                                          \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY"                                                                                  \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
 
 
 # Short accounts -- no vote account
-if should_run_test enter_no_vote_account; then
-    assert_fail enter_no_vote_account                                                                                 \
-    '{"Custom":1003}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool false                                                                                                 \
-           // Max Commission //                                                                                       \
-           u8 0                                                                                                       \
-           // Max Commission Increase Per Epoch //                                                                    \
-           u8 0"                                                                                                      \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-fi
+assert_fail enter_no_vote_account                                                                                     \
+'{"Custom":1003}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool false                                                                                                     \
+       // Max Commission //                                                                                           \
+       u8 0                                                                                                           \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 0"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
 
 
 # Short data
-if should_run_test enter_short_data_2; then
-    assert_fail enter_short_data_2                                                                                    \
-    '{"Custom":1001}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $WITHDRAWER_KEYPAIR s                                                                              \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY                                                                               \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool false                                                                                                 \
-           // Max Commission //                                                                                       \
-           u8 0"                                                                                                      \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-fi
+assert_fail enter_short_data_2                                                                                        \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool false                                                                                                     \
+       // Max Commission //                                                                                           \
+       u8 0"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
 
 
 # Vote account exists but is not a vote account
-if should_run_test enter_not_a_vote_account; then
-    assert_fail enter_not_a_vote_account                                                                              \
-    '{"Custom":1101}'                                                                                                 \
-    `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $STAKE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1` 
-fi
+assert_fail enter_not_a_vote_account                                                                                  \
+'{"Custom":1101}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $STAKE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1` 
 
 
 # Manager account is not correct for vote account
-if should_run_test enter_incorrect_manager_account; then
-    assert_fail enter_incorrect_manager_account                                                                       \
-    '{"Custom":1100}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $STAKE_ACCOUNT_KEYPAIR w                                                                           \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $WITHDRAWER_KEYPAIR s                                                                              \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY                                                                               \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool false                                                                                                 \
-           // Max Commission //                                                                                       \
-           u8 0                                                                                                       \
-           // Max Commission Increase Per Epoch //                                                                    \
-           u8 0"                                                                                                      \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-fi
+assert_fail enter_incorrect_manager_account                                                                           \
+'{"Custom":1100}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $STAKE_ACCOUNT_KEYPAIR w                                                                               \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool false                                                                                                     \
+       // Max Commission //                                                                                           \
+       u8 0                                                                                                           \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 0"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
 
 
 # Use commission with bad max_commission
-if should_run_test enter_bad_max_commission; then
-    assert_fail enter_bad_max_commission                                                                              \
-    '{"Custom":1305}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $WITHDRAWER_KEYPAIR s                                                                              \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY                                                                               \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool true                                                                                                  \
-           // Max Commission //                                                                                       \
-           u8 101                                                                                                     \
-           // Max Commission Increase Per Epoch //                                                                    \
-           u8 0"                                                                                                      \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-fi
+assert_fail enter_bad_max_commission                                                                                  \
+'{"Custom":1305}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool true                                                                                                      \
+       // Max Commission //                                                                                           \
+       u8 101                                                                                                         \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 0"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
 
 
 # Use commission with bad max_commission_increase_per_epoch
-if should_run_test enter_bad_max_commission_increase_per_epoch; then
-    assert_fail enter_bad_max_commission_increase_per_epoch                                                           \
-    '{"Custom":1306}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $WITHDRAWER_KEYPAIR s                                                                              \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY                                                                               \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool true                                                                                                  \
-           // Max Commission //                                                                                       \
-           u8 10                                                                                                      \
-           // Max Commission Increase Per Epoch //                                                                    \
-           u8 101"                                                                                                    \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-fi
+assert_fail enter_bad_max_commission_increase_per_epoch                                                               \
+'{"Custom":1306}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool true                                                                                                      \
+       // Max Commission //                                                                                           \
+       u8 10                                                                                                          \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 101"                                                                                                        \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
 
 
 # Pre-existing commission is too large
-if should_run_test enter_pre_existing_commission; then
-    # Set commission on the vote account to 80
-    echo "Setting commission on $VOTE_ACCOUNT_KEYPAIR to 80"
-    solana -u l -k $WITHDRAWER_KEYPAIR vote-update-commission $VOTE_ACCOUNT_KEYPAIR 80 $WITHDRAWER_KEYPAIR            \
-           --commitment=finalized >/dev/null 2>/dev/null
-    assert_fail enter_pre_existing_commission                                                                         \
-    '{"Custom":1005}'                                                                                                 \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $WITHDRAWER_KEYPAIR s                                                                              \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY                                                                               \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool true                                                                                                  \
-           // Max Commission //                                                                                       \
-           u8 10                                                                                                      \
-           // Max Commission Increase Per Epoch //                                                                    \
-           u8 1"                                                                                                      \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact submit l 2>&1`
-    # Set commission on the vote account to 0
-    echo "Setting commission on $VOTE_ACCOUNT_KEYPAIR to 0"
-    solana -u l -k $WITHDRAWER_KEYPAIR vote-update-commission $VOTE_ACCOUNT_KEYPAIR 0 $WITHDRAWER_KEYPAIR             \
-           --commitment=finalized >/dev/null 2>/dev/null
-fi
+# Set commission on the vote account to 80
+echo "Setting commission on $VOTE_ACCOUNT_KEYPAIR to 80"
+solana -u l -k $WITHDRAWER_KEYPAIR vote-update-commission $VOTE_ACCOUNT_KEYPAIR 80 $WITHDRAWER_KEYPAIR                \
+       --commitment=finalized >/dev/null 2>/dev/null
+assert_fail enter_pre_existing_commission                                                                             \
+'{"Custom":1005}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool true                                                                                                      \
+       // Max Commission //                                                                                           \
+       u8 10                                                                                                          \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 1"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
+# Set commission on the vote account to 0
+echo "Setting commission on $VOTE_ACCOUNT_KEYPAIR to 0"
+solana -u l -k $WITHDRAWER_KEYPAIR vote-update-commission $VOTE_ACCOUNT_KEYPAIR 0 $WITHDRAWER_KEYPAIR                 \
+       --commitment=finalized >/dev/null 2>/dev/null
 
 
 # Withdraw authority is not withdraw authority of vote account
-if should_run_test enter_bad_withdraw_authority; then
-    # "MissingRequiredSignature" comes from the RPC simulate of the tx; with an incorrect withdraw authority
-    # specified, the vote program fails and prints that
-    assert_fail enter_bad_withdraw_authority                                                                          \
-    '"MissingRequiredSignature"'                                                                                      \
-    `echo "encoding c                                                                                                 \
-           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
-           program $SELF_PROGRAM_PUBKEY                                                                               \
-           // Vote Account Manager State Account //                                                                   \
-           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
-           // Vote Account //                                                                                         \
-           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
-           // Funding Account //                                                                                      \
-           account $WITHDRAWER_KEYPAIR ws                                                                             \
-           // Current Withdraw Authority //                                                                           \
-           account $ADMIN_KEYPAIR s                                                                                   \
-           // System Program Id //                                                                                    \
-           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
-           // Vote Program Id //                                                                                      \
-           account $VOTE_PROGRAM_PUBKEY                                                                               \
-           // Clock Sysvar Id //                                                                                      \
-           account $CLOCK_SYSVAR_PUBKEY                                                                               \
-           // Instruction code 0 = Enter //                                                                           \
-           u8 0                                                                                                       \
-           // Administrator //                                                                                        \
-           pubkey $ADMIN_KEYPAIR                                                                                      \
-           // Use Commission Caps //                                                                                  \
-           bool false                                                                                                 \
-           // Max Commission //                                                                                       \
-           u8 0                                                                                                       \
-           // Max Commission Increase Per Epoch //                                                                    \
-           u8 0"                                                                                                      \
-        | solxact encode                                                                                              \
-        | solxact hash l                                                                                              \
-        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
-        | solxact sign $ADMIN_KEYPAIR                                                                                 \
-        | solxact submit l 2>&1`
-fi
+# "MissingRequiredSignature" comes from the RPC simulate of the tx; with an incorrect withdraw authority
+# specified, the vote program fails and prints that
+assert_fail enter_bad_withdraw_authority                                                                              \
+'"MissingRequiredSignature"'                                                                                          \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $ADMIN_KEYPAIR s                                                                                       \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool false                                                                                                     \
+       // Max Commission //                                                                                           \
+       u8 0                                                                                                           \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 0"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact sign $ADMIN_KEYPAIR                                                                                     \
+    | solxact submit l 2>&1`
 
 
 # Enter successfully when manager account doesn't exist
-if should_run_test enter_success; then
-    assert enter_success                                                                                              \
-    `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert enter_success                                                                                                  \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
 
-    # Check to make sure that the account was created with the correct
-    WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
-    ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
-    
-    EXPECTED=`cat <<EOF
+# Check to make sure that the account was created with the correct
+WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
+ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
+
+EXPECTED=`cat <<EOF
 
 Manager Account: $MANAGER_ACCOUNT_PUBKEY
 Withdraw Authority: $WITHDRAWER_PUBKEY
@@ -318,55 +299,50 @@ Rewards Authority: $ADMIN_PUBKEY
 
 EOF`
 
-    ACTUAL=`$SOURCE/scripts/vamp -u l show $VOTE_ACCOUNT_KEYPAIR`
+ACTUAL=`$SOURCE/scripts/vamp -u l show $VOTE_ACCOUNT_KEYPAIR`
 
-    if [ "$EXPECTED" != "$ACTUAL" ]; then
-        echo "FAIL: enter_success: Unexpected manager account contents:"
-        diff <(echo "$EXPECTED") <(echo "$ACTUAL")
-        exit 1
-    fi
-
-    # Check to make sure that the vote account withdraw authority is set to the management account
-    ACTUAL=`solana -u l vote-account $VOTE_ACCOUNT_KEYPAIR | grep "^Withdraw Authority" | cut -d ' ' -f 3`
-
-    if [ "$MANAGER_ACCOUNT_PUBKEY" != "$ACTUAL" ]; then
-        echo "FAIL: enter_success: Unexpected vote account withdraw authority:"
-        echo "$MANAGER_ACCOUNT_PUBKEY"
-        echo "$ACTUAL"
-        exit 1
-    fi
-
-    # Leave, so as to not modify state
-    assert enter_success_cleanup                                                                                      \
-    `$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+    echo "FAIL: enter_success: Unexpected manager account contents:"
+    diff <(echo "$EXPECTED") <(echo "$ACTUAL")
+    exit 1
 fi
+
+# Check to make sure that the vote account withdraw authority is set to the management account
+ACTUAL=`solana -u l vote-account $VOTE_ACCOUNT_KEYPAIR | grep "^Withdraw Authority" | cut -d ' ' -f 3`
+
+if [ "$MANAGER_ACCOUNT_PUBKEY" != "$ACTUAL" ]; then
+    echo "FAIL: enter_success: Unexpected vote account withdraw authority:"
+    echo "$MANAGER_ACCOUNT_PUBKEY"
+    echo "$ACTUAL"
+    exit 1
+fi
+
+# Leave, so as to not modify state
+assert enter_success_cleanup                                                                                          \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
 
 
 # Enter successfully when manager account exists already as a system account
-if should_run_test enter_success_2; then
-    echo "Transferring 2 SOL from $WITHDRAWER_KEYPAIR to $MANAGER_ACCOUNT2_PUBKEY"
-    solana -u l transfer -k $WITHDRAWER_KEYPAIR $MANAGER_ACCOUNT2_PUBKEY 2                                            \
-           --allow-unfunded-recipient --commitment finalized >/dev/null 2>/dev/null
-    
-    assert enter_success_2                                                                                            \
-    `$SOURCE/scripts/vamp -u l enter $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+echo "Transferring 2 SOL from $WITHDRAWER_KEYPAIR to $MANAGER_ACCOUNT2_PUBKEY"
+solana -u l transfer -k $WITHDRAWER_KEYPAIR $MANAGER_ACCOUNT2_PUBKEY 2                                                \
+       --allow-unfunded-recipient --commitment finalized >/dev/null 2>/dev/null
 
-    # Leave, so as to not modify state
-    assert enter_success_2_cleanup                                                                                    \
-    `$SOURCE/scripts/vamp -u l leave $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR 2>&1`
-fi
+assert enter_success_2                                                                                                \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+
+# Leave, so as to not modify state
+assert enter_success_2_cleanup                                                                                        \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR 2>&1`
 
 
 # Manager account already exists as a manager account
-if should_run_test enter_already_exists; then
-    assert enter_already_exists_setup                                                                                 \
-    `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
-    
-    assert_fail enter_already_exists                                                                                  \
-    '{"Custom":1004}'                                                                                                 \
-    `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert enter_already_exists_setup                                                                                     \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
 
-    # Leave, so as to not modify state
-    assert enter_already_exists_cleanup                                                                               \
-    `$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
-fi
+assert_fail enter_already_exists                                                                                      \
+'{"Custom":1004}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+
+# Leave, so as to not modify state
+assert enter_already_exists_cleanup                                                                                   \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
