@@ -265,8 +265,11 @@ typedef enum
     // Attempt to leave before the leave epoch
     Error_CannotLeaveYet                      = 1011,
 
+    // Attempt to set leave epoch for a management account that isn't enforcing commission caps
+    Error_CannotSetLeaveEpoch                 = 1012,
+
     // Attempt to set commission to a value that would exceed the allowed commission increase rate
-    Error_CommissionChangeTooLarge            = 1012,
+    Error_CommissionChangeTooLarge            = 1013,
 
     // Errors Error_InvalidAccount_First through Error_InvalidAccount_Last are used to indicate an error in input
     // account, where the specific account that was faulty is the offset from Error_InvalidAccount_First
@@ -614,6 +617,8 @@ typedef struct __attribute__((__packed__))
 // Data structure stored in a vote account.  This is only the needed fields.
 typedef struct __attribute__((__packed__))
 {
+    uint32_t version;
+
     SolPubkey node_pubkey;
 
     SolPubkey authorized_withdrawer;
@@ -1013,7 +1018,7 @@ static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSi
         DECLARE_ACCOUNT(1,   vote_account,                  ReadOnly,   NotSigner,  KnownAccount_NotKnown);
         DECLARE_ACCOUNT(2,   withdraw_authority,            ReadOnly,   Signer,     KnownAccount_NotKnown);
     }
-    DECLARE_ACCOUNTS_NUMBER(2);
+    DECLARE_ACCOUNTS_NUMBER(3);
 
     // instruction_data will be set to the input data if it is of the correct size
     DECLARE_DATA(SetLeaveEpochInstructionData, instruction_data);
@@ -1024,6 +1029,12 @@ static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSi
     // Ensure that the provided withdraw authority is the withdraw authority that was saved in the manager account
     if (!SolPubkey_same(&(manager_account_state->withdraw_authority), withdraw_authority->key)) {
         return Error_InvalidAccount_First + 2;
+    }
+
+    // If the manager account is not enforcing commission caps, then the leave epoch cannot be set (because it is
+    // irrelevant)
+    if (!manager_account_state->use_commission_caps) {
+        return Error_CannotSetLeaveEpoch;
     }
 
     // If the leave epoch is already set, then cannot re-set it

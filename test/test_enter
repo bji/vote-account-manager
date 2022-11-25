@@ -3,7 +3,7 @@
 # Short data -- no instruction code
 if should_run_test enter_short_data; then
     assert_fail enter_short_data                                                                                      \
-    '{ "Custom": 1001 }'                                                                                              \
+    '{"Custom":1001}'                                                                                                 \
     `echo "encoding c                                                                                                 \
            fee_payer $WITHDRAWER_KEYPAIR                                                                              \
            program $SELF_PROGRAM_PUBKEY                                                                               \
@@ -31,7 +31,7 @@ fi
 # Short accounts -- no vote account
 if should_run_test enter_no_vote_account; then
     assert_fail enter_no_vote_account                                                                                 \
-    '{ "Custom": 1003 }'                                                                                              \
+    '{"Custom":1003}'                                                                                                 \
     `echo "encoding c                                                                                                 \
            fee_payer $WITHDRAWER_KEYPAIR                                                                              \
            program $SELF_PROGRAM_PUBKEY                                                                               \
@@ -54,10 +54,46 @@ if should_run_test enter_no_vote_account; then
 fi
 
 
+# Short data
+if should_run_test enter_short_data_2; then
+    assert_fail enter_short_data_2                                                                                    \
+    '{"Custom":1001}'                                                                                                 \
+    `echo "encoding c                                                                                                 \
+           fee_payer $WITHDRAWER_KEYPAIR                                                                              \
+           program $SELF_PROGRAM_PUBKEY                                                                               \
+           // Vote Account Manager State Account //                                                                   \
+           account $MANAGER_ACCOUNT_PUBKEY w                                                                          \
+           // Vote Account //                                                                                         \
+           account $VOTE_ACCOUNT_KEYPAIR w                                                                            \
+           // Funding Account //                                                                                      \
+           account $WITHDRAWER_KEYPAIR ws                                                                             \
+           // Current Withdraw Authority //                                                                           \
+           account $WITHDRAWER_KEYPAIR s                                                                              \
+           // System Program Id //                                                                                    \
+           account $SYSTEM_PROGRAM_PUBKEY                                                                             \
+           // Vote Program Id //                                                                                      \
+           account $VOTE_PROGRAM_PUBKEY                                                                               \
+           // Clock Sysvar Id //                                                                                      \
+           account $CLOCK_SYSVAR_PUBKEY                                                                               \
+           // Instruction code 0 = Enter //                                                                           \
+           u8 0                                                                                                       \
+           // Administrator //                                                                                        \
+           pubkey $ADMIN_KEYPAIR                                                                                      \
+           // Use Commission Caps //                                                                                  \
+           bool false                                                                                                 \
+           // Max Commission //                                                                                       \
+           u8 0"                                                                                                      \
+        | solxact encode                                                                                              \
+        | solxact hash l                                                                                              \
+        | solxact sign $WITHDRAWER_KEYPAIR                                                                            \
+        | solxact submit l 2>&1`
+fi
+
+
 # Vote account exists but is not a vote account
 if should_run_test enter_not_a_vote_account; then
     assert_fail enter_not_a_vote_account                                                                              \
-    '{ "Custom": 1101 }'                                                                                              \
+    '{"Custom":1101}'                                                                                                 \
     `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $STAKE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1` 
 fi
 
@@ -65,7 +101,7 @@ fi
 # Manager account is not correct for vote account
 if should_run_test enter_incorrect_manager_account; then
     assert_fail enter_incorrect_manager_account                                                                       \
-    '{ "Custom": 1100 }'                                                                                              \
+    '{"Custom":1100}'                                                                                                 \
     `echo "encoding c                                                                                                 \
            fee_payer $WITHDRAWER_KEYPAIR                                                                              \
            program $SELF_PROGRAM_PUBKEY                                                                               \
@@ -103,7 +139,7 @@ fi
 # Use commission with bad max_commission
 if should_run_test enter_bad_max_commission; then
     assert_fail enter_bad_max_commission                                                                              \
-    '{ "Custom": 1305 }'                                                                                              \
+    '{"Custom":1305}'                                                                                                 \
     `echo "encoding c                                                                                                 \
            fee_payer $WITHDRAWER_KEYPAIR                                                                              \
            program $SELF_PROGRAM_PUBKEY                                                                               \
@@ -141,7 +177,7 @@ fi
 # Use commission with bad max_commission_increase_per_epoch
 if should_run_test enter_bad_max_commission_increase_per_epoch; then
     assert_fail enter_bad_max_commission_increase_per_epoch                                                           \
-    '{ "Custom": 1306 }'                                                                                              \
+    '{"Custom":1306}'                                                                                                 \
     `echo "encoding c                                                                                                 \
            fee_payer $WITHDRAWER_KEYPAIR                                                                              \
            program $SELF_PROGRAM_PUBKEY                                                                               \
@@ -183,7 +219,7 @@ if should_run_test enter_pre_existing_commission; then
     solana -u l -k $WITHDRAWER_KEYPAIR vote-update-commission $VOTE_ACCOUNT_KEYPAIR 80 $WITHDRAWER_KEYPAIR            \
            --commitment=finalized >/dev/null 2>/dev/null
     assert_fail enter_pre_existing_commission                                                                         \
-    '{ "Custom": 1005 }'                                                                                              \
+    '{"Custom":1005}'                                                                                                 \
     `echo "encoding c                                                                                                 \
            fee_payer $WITHDRAWER_KEYPAIR                                                                              \
            program $SELF_PROGRAM_PUBKEY                                                                               \
@@ -274,6 +310,7 @@ if should_run_test enter_success; then
     
     EXPECTED=`cat <<EOF
 
+Manager Account: $MANAGER_ACCOUNT_PUBKEY
 Withdraw Authority: $WITHDRAWER_PUBKEY
 Administrator: $ADMIN_PUBKEY
 Operational Authority: $ADMIN_PUBKEY
@@ -326,7 +363,7 @@ if should_run_test enter_already_exists; then
     `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
     
     assert_fail enter_already_exists                                                                                  \
-    '{ "Custom": 1004 }'                                                                                              \
+    '{"Custom":1004}'                                                                                                 \
     `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
 
     # Leave, so as to not modify state

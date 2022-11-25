@@ -29,35 +29,55 @@ function sanitize_output ()
     if [[ "$@" = "ERROR: {"* ]]; then
         JSON=`echo "$@" | cut -d ' ' -f 2- | sed "s/ Try 'solxact help' for help//g"`
         # Extract error
-        ERROR=`echo "$JSON" | jq .error`
-        if [ "$ERROR" = "null" ]; then
-            # Just use the full output since it's not an expected error
-            echo $@
-            return
+        if [ "`echo "$JSON" | jq .error`" != "null" ]; then
+            if [ "`echo "$JSON" | jq .error.data`" != "null" -a                                                       \
+                 "`echo "$JSON" | jq .error.data.err`" != "null" -a                                                   \
+                 "`echo "$JSON" | jq .error.data.err.InstructionError[1]`" != "null" ]; then
+                echo "$JSON" | jq -c .error.data.err.InstructionError[1]
+                return
+            fi
         fi
-        DATA=`echo $ERROR | jq .data`
-        if [ "$DATA" = "null" ]; then
-            # Just use the full output since it's not an expected error
-            echo $@
-            return
+    elif [[ "$@" = "{"* ]]; then
+        JSON="$@"
+        if [ "`echo "$JSON" | jq .result`" != "null" ]; then
+            if [ "`echo "$JSON" | jq .result.meta`" != "null" -a                                                      \
+                 "`echo "$JSON" | jq .result.meta.err`" != "null" -a                                                  \
+                 "`echo "$JSON" | jq .result.meta.err.InstructionError[1]`" != "null" ]; then
+                echo "$JSON" | jq -c .result.meta.err.InstructionError[1]
+                return
+            fi
         fi
-        ERR=`echo $DATA | jq .err`
-        if [ "$ERR" = "null" ]; then
-            # Just use the full output since it's not an expected error
-            echo $@
-            return
-        fi
-        CUSTOM=`echo $ERR | jq .InstructionError[1]`
-        if [ "$CUSTOM" = "null" ]; then
-            # Just use the full output since it's not an expected error
-            echo $@
-            return
-        fi
-        echo $CUSTOM
-    else
-        # Just use the full output since it's not an error
-        echo "$@"
     fi
+    
+    # Just use the full output since it's not a parseable error
+    echo "$@"
+}
+
+
+function current_epoch ()
+{
+    solana -u l epoch-info | grep ^Epoch: | cut -d ' ' -f 2
+}
+
+
+function sleep_until_epoch ()
+{
+    while true; do
+        echo "Waiting until epoch $1"
+        sleep 5
+        CURRENT_EPOCH=`current_epoch`
+        if [ $CURRENT_EPOCH == $1 ]; then
+            break
+        fi
+        echo "Waiting until epoch $1"
+        sleep 5
+    done
+}
+
+    
+function sleep_until_next_epoch ()
+{
+    sleep_until_epoch $((`current_epoch`+1))
 }
 
 
@@ -122,6 +142,7 @@ function assert_fail ()
             for i in `seq 1 10`; do
                 TEST_OUTPUT=`curl -s http://localhost:8899 -X POST -H "Content-Type: application/json" -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getTransaction\",\"params\":[\"$SIGNATURE\",\"json\"]}"`
                 if [ -n "$TEST_OUTPUT" ]; then
+                    TEST_OUTPUT=`sanitize_output "$TEST_OUTPUT"`
                     break
                 fi
                 sleep 1
@@ -256,6 +277,8 @@ export STAKE_ACCOUNT_KEYPAIR=$LEDGER/stake_account.json
 
 
 source $SOURCE/test/test_enter
+
+source $SOURCE/test/test_set_leave_epoch
 
 
 # Tear down

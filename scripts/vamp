@@ -683,6 +683,7 @@ case "$COMMAND" in
 
         if [ -z "$JSON" ]; then
             echo
+            echo "Manager Account: $MANAGER_ACCOUNT_PUBKEY"
             echo "Withdraw Authority: $WITHDRAW_AUTHORITY"
             echo "Administrator: $ADMINISTRATOR"
             echo "Operational Authority: $OPERATIONAL_AUTHORITY"
@@ -696,7 +697,8 @@ case "$COMMAND" in
             fi
             echo
         else
-            echo -n '{"withdraw_authority":"'$WITHDRAW_AUTHORITY'","administrator":"'$ADMINISTRATOR'",'
+            echo -n '{"manager_account_pubkey":"'$MANAGER_ACCOUNT_PUBKEY'",'
+            echo -n '"withdraw_authority":"'$WITHDRAW_AUTHORITY'","administrator":"'$ADMINISTRATOR'",'
             echo -n '"operational_authority":"'$OPERATIONAL_AUTHORITY'","rewards_authority":"'$REWARDS_AUTHORITY'"'
             if [ -n "$MAX_COMMISSION" ]; then
                 echo -n ',"max_commission":'$MAX_COMMISSION
