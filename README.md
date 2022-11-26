@@ -15,6 +15,41 @@ The Vote Account Manager program is published at the following address:
 `vamp1eWV3zyWNiRwC7rdiBznrN8nB8ML8uXGk2kg7cU`
 
 
+## Interacting with the Vote Account Manager
+
+A script `vamp` is provided in the scripts directory.  It requires the installation of the
+[solxact](https://github.com/bji/solxact)  program before it can be used.
+
+vamp supports all available interactions with the Vote Account Manager program, and additionally
+allows for the query for configuration state of a given vote account.  For more help:
+
+```
+$ vamp help
+
+vamp is a utility script that can be used to interact with the Vote Account
+Manager program.  All functionality of the program can be exercised using this
+script.  Note that the 'solxact' program must be installed to use vamp.
+
+
+Usage: vamp enter                      -- To start using VAMP
+       vamp set-leave-epoch            -- To set a leave epoch
+       vamp leave                      -- To stop using VAMP
+       vamp set-administrator          -- To set the administrator
+       vamp set-operational-authority  -- To set the operational authority
+       vamp set-rewards-authority      -- To set the rewards authority
+       vamp set-vote-authority         -- To set the vote authority
+       vamp set-validator-identity     -- To set the validator identity
+       vamp withdraw                   -- To withdraw from the vote account
+       vamp set-commission             -- To set commission
+       vamp show                       -- To show managed state
+       vamp help                       -- To print this help message
+
+
+For help on a specific command, use 'vamp help <COMMAND>', for example:
+
+$ vamp help enter
+```
+
 ## Using
 
 
@@ -144,13 +179,13 @@ have at least one epoch to act once the operator has indicated their intention t
 restrictions on the vote account by removing it from Vote Account Manager program control.
 
 
-# Typical Use Cases
+## Typical Use Cases
 
 Because the Vote Account Manager authorities can be configured in different ways, there are several typical
 use cases supported.
 
 
-1. "Old style" management with withdraw authority in cold storage.
+1. **"Old style" management** with withdraw authority in cold storage.
 
 In this use case, the operator wants to continue using their vote account as it had been traditionally used, with a
 single authority controlling everything - but with the additional benefit of having a separate authority which can
@@ -173,7 +208,7 @@ After this command has been executed, the withdraw authority keypair can be put 
 all further vote account operations will be performed using the administrator keypair.
 
 
-2. "Pragmatic" management, without a separate operational authorty.  In this case, the operator has recognized
+2. **"Pragmatic" management**, without a separate operational authority.  In this case, the operator has recognized
 that the functions of the operational authority - setting the vote authority and validator identity - are so
 rare that it would be acceptable to keep them under control of the administrator.  But a separate rewards
 authority is still used because those operations are expected to be performed regularly.  The commands for
@@ -190,7 +225,7 @@ authority is put into fairly hot storage, in a place where regular withdraws fro
 done.
 
 
-3. "Full" management, with all authorities separate.  This would be used in case the operator has some reason
+3. **"Full" management**, with all authorities separate.  This would be used in case the operator has some reason
 to expect to need to change the vote authority or validator identity in future.  The commands for setting
 a vote account up for management in this way:
 
@@ -206,7 +241,7 @@ authority is put wherever it is needed in order to accomplish the changes in vot
 and the rewards authority is put into fairly hot storage, in a place where regular withdraws from the vote account can
 be done.
 
-4. "With commission caps" management, where any of the previous use cases are combined with commission
+4. **"With commission caps" management**, where any of the previous use cases are combined with commission
 caps enforced by the Vote Account Manager program.  This is not necessary, but for those validator operators
 who find value in giving stakers the peace of mind of knowing that commission cannot be raised beyond a
 "promised" maximum commission, or changed more than a certain percent per epoch, these caps can be used.
@@ -218,6 +253,8 @@ command would be used in place of the `vamp enter` command used in prior use cas
 $ vamp enter withdraw_authority.json vote_account.json administrator.json 10 3
 ```
 
+
+## Viewing Management Settings
 
 To see the configured settings for a vote account managed by the Vote Account Manager program, use the
 `vamp show` command, like so:
@@ -361,42 +398,6 @@ tests and it is conservative in waiting for commands to complete successfully be
 to the next command.
 
 You can inspect all of the tests that were run by looking at the files in the `test` directory.
-
-
-## Interacting with the Vote Account Manager
-
-A script `vamp` is provided in the scripts directory.  It requires the installation of the
-solxact program before it can be used.
-
-vamp supports all available interactions with the Vote Account Manager program, and additionally
-allows for the query for configuration state of a given vote account.  For more help:
-
-```
-$ vamp help
-
-vamp is a utility script that can be used to interact with the Vote Account
-Manager program.  All functionality of the program can be exercised using this
-script.  Note that the 'solxact' program must be installed to use vamp.
-
-
-Usage: vamp enter                      -- To start using VAMP
-       vamp set-leave-epoch            -- To set a leave epoch
-       vamp leave                      -- To stop using VAMP
-       vamp set-administrator          -- To set the administrator
-       vamp set-operational-authority  -- To set the operational authority
-       vamp set-rewards-authority      -- To set the rewards authority
-       vamp set-vote-authority         -- To set the vote authority
-       vamp set-validator-identity     -- To set the validator identity
-       vamp withdraw                   -- To withdraw from the vote account
-       vamp set-commission             -- To set commission
-       vamp show                       -- To show managed state
-       vamp help                       -- To print this help message
-
-
-For help on a specific command, use 'vamp help <COMMAND>', for example:
-
-$ vamp help enter
-```
 
 
 ## License
