@@ -671,6 +671,14 @@ typedef struct __attribute__((__packed__))
 } VoteAuthorizeData;
 
 
+// To be used as data to pass to the vote program when invoking UpdateValidatorIdentity
+typedef struct __attribute__((__packed__))
+{
+    uint32_t enum_index; // 4 for UpdateValidatorIdentity
+
+} VoteUpdateValidatorIdentityData;
+
+
 // To be used as data to pass to the vote program when invoking Withdraw
 typedef struct __attribute__((__packed__))
 {
@@ -1283,9 +1291,6 @@ static uint64_t process_set_validator_identity(const SolParameters *params, cons
     }
     DECLARE_ACCOUNTS_NUMBER(5);
 
-    // instruction_data will be set to the input data if it is of the correct size
-    DECLARE_DATA(WithdrawRewardsInstructionData, instruction_data);
-
     // This is the vote account manager state
     const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;
 
@@ -1310,8 +1315,10 @@ static uint64_t process_set_validator_identity(const SolParameters *params, cons
     instruction.accounts = account_metas;
     instruction.account_len = ARRAY_LEN(account_metas);
 
-    instruction.data = 0;
-    instruction.data_len = 0;
+    VoteUpdateValidatorIdentityData data = { 4 };
+
+    instruction.data = (uint8_t *) &data;
+    instruction.data_len = sizeof(data);
 
     return sol_invoke_signed(&instruction, params->ka, params->ka_num, signer_seeds, 1);
 }

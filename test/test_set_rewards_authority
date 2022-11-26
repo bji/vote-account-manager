@@ -1,0 +1,61 @@
+
+
+# Enter for a vote account to be used in remaining tests
+assert set_rewards_authority_setup                                                                                    \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert set_operational_authority_setup_2                                                                              \
+`$SOURCE/scripts/vamp -u l set-operational-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
+assert set_operational_authority_setup_3                                                                              \
+`$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
+
+# Short data
+assert_fail set_rewards_authority_short_data                                                                          \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $ADMIN_KEYPAIR                                                                                       \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR                                                                                  \
+       // Administrator //                                                                                            \
+       account $ADMIN_KEYPAIR s                                                                                       \
+       // Instruction code 5 = SetRewardsAuthority //                                                                 \
+       u8 5"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $ADMIN_KEYPAIR                                                                                     \
+    | solxact submit l 2>&1`
+
+
+# Invalid administrator
+assert_fail set_rewards_authority_invalid_administrator                                                               \
+'{"Custom":1102}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-rewards-authority $USER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                  \
+                      $REWARDS_AUTHORITY_KEYPAIR 2>&1`
+
+
+# Success
+assert set_rewards_authority_success                                                                                  \
+`$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                 \
+                      $REWARDS_AUTHORITY_KEYPAIR 2>&1`
+# Check to make sure that the management account is correct
+WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
+ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
+USER_PUBKEY=`solxact pubkey $USER_KEYPAIR`
+REWARDS_AUTHORITY_PUBKEY=`solxact pubkey $REWARDS_AUTHORITY_KEYPAIR`
+
+EXPECTED=`cat <<EOF
+
+Manager Account: $MANAGER_ACCOUNT_PUBKEY
+Withdraw Authority: $WITHDRAWER_PUBKEY
+Administrator: $ADMIN_PUBKEY
+Operational Authority: $USER_PUBKEY
+Rewards Authority: $REWARDS_AUTHORITY_PUBKEY
+
+EOF`
+
+
+# Leave to clean up test
+assert set_rewards_authority_cleanup                                                                                  \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

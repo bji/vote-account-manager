@@ -1,0 +1,69 @@
+
+
+# Enter for a vote account to be used in remaining tests
+assert set_vote_authority_setup                                                                                       \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert set_vote_authority_setup_2                                                                                     \
+`$SOURCE/scripts/vamp -u l set-operational-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                             \
+                      $OPERATIONS_AUTHORITY_KEYPAIR 2>&1`
+assert set_vote_authority_setup_3                                                                                     \
+`$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                 \
+                      $REWARDS_AUTHORITY_KEYPAIR 2>&1`
+
+# Short data
+assert_fail set_vote_authority_short_data                                                                             \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $OPERATIONS_AUTHORITY_KEYPAIR                                                                        \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY                                                                                \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Operational Authority //                                                                                    \
+       account $OPERATIONS_AUTHORITY_KEYPAIR s                                                                        \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 6 = SetVoteAuthority //                                                                    \
+       u8 6"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $OPERATIONS_AUTHORITY_KEYPAIR                                                                      \
+    | solxact submit l 2>&1`
+
+
+# Invalid operational authority
+assert_fail set_vote_authority_invalid_operational_authority                                                          \
+'{"Custom":1102}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-vote-authority $USER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
+
+
+# Success
+assert set_vote_authority_success                                                                                     \
+`$SOURCE/scripts/vamp -u l set-vote-authority $OPERATIONS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
+# Check to make sure that the vote authority was updated
+USER_PUBKEY=`solxact pubkey $USER_KEYPAIR`
+VALIDATOR_IDENTITY_PUBKEY=`solxact pubkey $VALIDATOR_IDENTITY_KEYPAIR`
+ACTUAL=`solana -u l vote-account $VOTE_ACCOUNT_KEYPAIR | grep "^Vote Authority" | cut -d ' ' -f 3-`
+# This is if the form {100: "old_vote_pubkey", 102: "new_vote_pubkey"}
+OLD_VOTE_PUBKEY=`echo "$ACTUAL" | cut -d ' ' -f 2 | tr -d ',' | tr -d '"'`
+NEW_VOTE_PUBKEY=`echo "$ACTUAL" | cut -d ' ' -f 4 | tr -d '}' | tr -d '"'`
+if [ "$VALIDATOR_IDENTITY_PUBKEY" != "$OLD_VOTE_PUBKEY" ]; then
+    echo "FAIL: enter_success: Unexpected vote account original vote authority:"
+    echo "$VALIDATOR_IDENTITY_PUBKEY"
+    echo "$OLD_VOTE_PUBKEY"
+    exit 1
+fi    
+if [ "$USER_PUBKEY" != "$NEW_VOTE_PUBKEY" ]; then
+    echo "FAIL: enter_success: Unexpected vote account new vote authority:"
+    echo "$USER_PUBKEY"
+    echo "$NEW_VOTE_PUBKEY"
+    exit 1
+fi
+
+
+# Leave to clean up test
+assert set_vote_authority_cleanup                                                                                     \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

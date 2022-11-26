@@ -284,6 +284,16 @@ source $SOURCE/test/test_set_leave_epoch
 
 source $SOURCE/test/test_leave
 
+source $SOURCE/test/test_set_administrator
+
+source $SOURCE/test/test_set_operational_authority
+
+source $SOURCE/test/test_set_rewards_authority
+
+source $SOURCE/test/test_set_vote_authority
+
+source $SOURCE/test/test_set_validator_identity
+
 
 # Tear down
 #echo "Stopping test validator @ $LEDGER"

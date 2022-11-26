@@ -1,0 +1,96 @@
+
+
+# Enter for a vote account that enforces commission to be used in remaining tests
+assert set_leave_epoch_setup                                                                                          \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 50 2 2>&1`
+
+
+# Short data
+assert_fail set_leave_epoch_short_data                                                                                \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR                                                                                  \
+       // Withdraw Authority //                                                                                       \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // Instruction code 1 = SetLeaveEpoch //                                                                       \
+       u8 1"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
+
+
+# Invalid withdraw authority
+assert_fail set_leave_epoch_invalid_withdrawer                                                                        \
+'{"Custom":1102}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR                                                                                  \
+       // Withdraw Authority //                                                                                       \
+       account $ADMIN_KEYPAIR s                                                                                       \
+       // Instruction code 1 = SetLeaveEpoch //                                                                       \
+       u8 1                                                                                                           \
+       // Leave Epoch //                                                                                              \
+       u64 1000"                                                                                                      \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact sign $ADMIN_KEYPAIR                                                                                     \
+    | solxact submit l 2>&1`
+
+
+# Management account not enforcing commission caps
+assert set_leave_epoch_not_enforcing_commission_setup                                                                 \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+
+assert_fail set_leave_epoch_not_enforcing_commission                                                                  \
+'{"Custom":1012}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR 1000 2>&1`
+
+assert set_leave_epoch_not_enforcing_commission_cleanup                                                               \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT2_KEYPAIR 2>&1`
+
+
+# Leave epoch in the past
+assert_fail set_leave_epoch_past                                                                                      \
+'{"Custom":1009}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 1 2>&1`
+
+
+# Leave epoch too soon
+LEAVE_EPOCH=$((`current_epoch`+1))
+assert_fail set_leave_epoch_too_soon                                                                                  \
+'{"Custom":1009}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $LEAVE_EPOCH 2>&1`
+
+
+# Success is always tested, because the leave epoch must be set in order to clean up
+# Must sleep to the beginning of an epoch so that an epoch span during the next few commands doesn't happen
+sleep_until_next_epoch
+LEAVE_EPOCH=$((`current_epoch`+2))
+    
+assert set_leave_epoch_success                                                                                        \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $LEAVE_EPOCH 2>&1`
+
+
+# Leave epoch already set
+EPOCH=$((`current_epoch`+100))
+
+assert_fail set_leave_epoch_already_set                                                                               \
+'{"Custom":1008}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $EPOCH 2>&1`
+
+
+# Clean up by leaving -- must wait for the leave epoch
+sleep_until_epoch $LEAVE_EPOCH
+assert set_leave_epoch_cleanup                                                                                        \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

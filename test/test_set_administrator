@@ -1,0 +1,54 @@
+
+
+# Enter for a vote account to be used in remaining tests
+assert set_administrator_setup                                                                                        \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+
+# Short data
+assert_fail set_administrator_short_data                                                                              \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR                                                                                  \
+       // Withdraw Authority //                                                                                       \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // Instruction code 3 = SetAdministrator //                                                                    \
+       u8 3"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
+
+
+# Invalid withdraw authority
+assert_fail set_administrator_invalid_withdrawer                                                                      \
+'{"Custom":1102}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-administrator $WITHDRAWER2_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
+
+
+# Success
+assert set_administrator_success                                                                                      \
+`$SOURCE/scripts/vamp -u l set-administrator $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $WITHDRAWER2_KEYPAIR 2>&1`
+# Check to make sure that the management account is correct
+WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
+WITHDRAWER2_PUBKEY=`solxact pubkey $WITHDRAWER2_KEYPAIR`
+ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
+
+EXPECTED=`cat <<EOF
+
+Manager Account: $MANAGER_ACCOUNT_PUBKEY
+Withdraw Authority: $WITHDRAWER_PUBKEY
+Administrator: $WITHDRAWER2_PUBKEY
+Operational Authority: $ADMIN_PUBKEY
+Rewards Authority: $ADMIN_PUBKEY
+
+EOF`
+
+
+# Leave to clean up test
+assert set_administrator_cleanup                                                                                      \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

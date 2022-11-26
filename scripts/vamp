@@ -154,6 +154,15 @@ function tx ()
 }
 
 
+function tx_2 ()
+{
+    ADDITIONAL_SIGNER=$1
+    shift
+    
+    echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY | solxact sign $ADDITIONAL_SIGNER \
+            | solxact submit $RPC_ENDPOINT
+}
+
 # Data is piped in
 function to_base58 ()
 {
@@ -509,9 +518,9 @@ case "$COMMAND" in
             fee_payer $FEE_PAYER                                                                                      \
             program $SELF_PROGRAM_PUBKEY                                                                              \
             // Vote Account Manager State Account //                                                                  \
-            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            account $MANAGER_ACCOUNT_PUBKEY                                                                           \
             // Vote Account //                                                                                        \
-            account $VOTE_ACCOUNT                                                                                     \
+            account $VOTE_ACCOUNT w                                                                                   \
             // Operational Authority //                                                                               \
             account $AUTHORITY s                                                                                      \
             // Vote Program Id //                                                                                     \
@@ -531,21 +540,23 @@ case "$COMMAND" in
 
         require set-validator-identity $NEW_VALIDATOR_IDENTITY
 
-        tx "encoding c                                                                                                \
+        # Transaction must be signed by new validator identity
+        tx_2 $NEW_VALIDATOR_IDENTITY                                                                                  \
+           "encoding c                                                                                                \
             fee_payer $FEE_PAYER                                                                                      \
             program $SELF_PROGRAM_PUBKEY                                                                              \
             // Vote Account Manager State Account //                                                                  \
-            account $MANAGER_ACCOUNT_PUBKEY w                                                                         \
+            account $MANAGER_ACCOUNT_PUBKEY                                                                           \
             // Vote Account //                                                                                        \
-            account $VOTE_ACCOUNT                                                                                     \
+            account $VOTE_ACCOUNT w                                                                                   \
             // Operational Authority //                                                                               \
             account $AUTHORITY s                                                                                      \
+            // New Validator Identity //                                                                              \
+            account $NEW_VALIDATOR_IDENTITY s                                                                         \
             // Vote Program Id //                                                                                     \
             account $VOTE_PROGRAM_PUBKEY                                                                              \
             // Instruction code 7 = SetValidatorIdentity //                                                           \
-            u8 7                                                                                                      \
-            // New Validator Identity //                                                                              \
-            pubkey $NEW_VALIDATOR_IDENTITY"
+            u8 7"
 
         ;;
         

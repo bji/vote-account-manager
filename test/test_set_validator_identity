@@ -1,0 +1,37 @@
+
+
+# Enter for a vote account to be used in remaining tests
+assert set_validator_identity_setup                                                                                   \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert set_validator_identity_setup_2                                                                                 \
+`$SOURCE/scripts/vamp -u l set-operational-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                             \
+                      $OPERATIONS_AUTHORITY_KEYPAIR 2>&1`
+assert set_validator_identity_setup_3                                                                                 \
+`$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                 \
+                      $REWARDS_AUTHORITY_KEYPAIR 2>&1`
+
+
+# Invalid operational authority
+assert_fail set_validator_identity_invalid_operational_authority                                                      \
+'{"Custom":1102}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-validator-identity $USER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
+
+
+# Success
+assert set_validator_identity_success                                                                                 \
+`$SOURCE/scripts/vamp -u l set-validator-identity $OPERATIONS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                 \
+                      $VALIDATOR_IDENTITY2_KEYPAIR 2>&1`
+# Check to make sure that the validator identity was updated
+VALIDATOR_IDENTITY2_PUBKEY=`solxact pubkey $VALIDATOR_IDENTITY2_KEYPAIR`
+ACTUAL=`solana -u l vote-account $VOTE_ACCOUNT_KEYPAIR | grep "^Validator Identity" | cut -d ' ' -f 3-`
+if [ "$VALIDATOR_IDENTITY2_PUBKEY" != "$ACTUAL" ]; then
+    echo "FAIL: enter_success: Unexpected validator identity:"
+    echo "$VALIDATOR_IDENTITY2_PUBKEY"
+    echo "$ACTUAL"
+    exit 1
+fi    
+
+
+# Leave to clean up test
+assert set_validator_identity_cleanup                                                                                 \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

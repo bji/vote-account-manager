@@ -1,0 +1,101 @@
+
+# Enter for a vote account that enforces commission to be used in remaining tests
+assert leave_setup                                                                                                    \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 50 2 2>&1`
+
+
+# Invalid withdraw authority
+assert_fail leave_invalid_withdrawer                                                                                  \
+'{"Custom":1102}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Withdraw Authority //                                                                                       \
+       account $ADMIN_KEYPAIR s                                                                                       \
+       // Recipient Account //                                                                                        \
+       account $WITHDRAWER_KEYPAIR w                                                                                  \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 2 = Leave //                                                                               \
+       u8 2"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact sign $ADMIN_KEYPAIR                                                                                     \
+    | solxact submit l 2>&1`
+
+
+# Leave epoch not set
+assert_fail leave_not_set                                                                                             \
+'{"Custom":1010}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Withdraw Authority //                                                                                       \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // Recipient Account //                                                                                        \
+       account $WITHDRAWER_KEYPAIR w                                                                                  \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 2 = Leave //                                                                               \
+       u8 2"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
+
+
+# Set leave epoch to earliest possible (in two epochs)
+# Must sleep to the beginning of an epoch so that an epoch span during the next few commands doesn't happen
+sleep_until_next_epoch
+LEAVE_EPOCH=$((`current_epoch`+2))
+assert leave_setup_2                                                                                                  \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $LEAVE_EPOCH 2>&1`
+
+
+# Leave epoch in future
+assert_fail leave_too_soon                                                                                            \
+'{"Custom":1011}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
+
+
+# Success
+sleep_until_epoch $LEAVE_EPOCH
+assert leave_success                                                                                                  \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
+# Check to make sure that the manager account was deleted
+set +e
+ACTUAL=`$SOURCE/scripts/vamp -u l show $VOTE_ACCOUNT_KEYPAIR 2>/dev/null`
+set -e
+if [ -n "$ACTUAL" ]; then
+    echo "FAIL: leave_success: Manager account was not deleted"
+    exit 1
+fi    
+# Check to make sure that the original withdraw authority is now the withdraw authority of the vote account
+WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
+ACTUAL=`solana -u l vote-account $VOTE_ACCOUNT_KEYPAIR | grep "^Withdraw Authority" | cut -d ' ' -f 3`
+if [ "$WITHDRAWER_PUBKEY" != "$ACTUAL" ]; then
+    echo "FAIL: enter_success: Unexpected vote account withdraw authority:"
+    echo "$WITHDRAWER_PUBKEY"
+    echo "$ACTUAL"
+    exit 1
+fi
+
+
+# Success with no leave epoch necessary
+assert leave_setup_3                                                                                                  \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert leave_success_2                                                                                                \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
