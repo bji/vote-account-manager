@@ -581,7 +581,7 @@ case "$COMMAND" in
         fi
 
         # Convert SOL to lamports
-        LAMPORTS=`printf "%0.f" \`echo "$SOL 1000 * 1000 * 1000 * p | dc -\``
+        LAMPORTS=`printf "%0.f" \`echo "$SOL 1000 * 1000 * 1000 * p" | dc -\``
         
         tx "encoding c                                                                                                \
             fee_payer $FEE_PAYER                                                                                      \

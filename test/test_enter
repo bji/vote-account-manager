@@ -284,11 +284,9 @@ assert_fail enter_bad_withdraw_authority                                        
 # Enter successfully when manager account doesn't exist
 assert enter_success                                                                                                  \
 `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
-
 # Check to make sure that the account was created with the correct
 WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
 ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
-
 EXPECTED=`cat <<EOF
 
 Manager Account: $MANAGER_ACCOUNT_PUBKEY

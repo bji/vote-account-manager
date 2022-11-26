@@ -37,7 +37,6 @@ assert set_administrator_success                                                
 WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
 WITHDRAWER2_PUBKEY=`solxact pubkey $WITHDRAWER2_KEYPAIR`
 ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
-
 EXPECTED=`cat <<EOF
 
 Manager Account: $MANAGER_ACCOUNT_PUBKEY
@@ -47,6 +46,12 @@ Operational Authority: $ADMIN_PUBKEY
 Rewards Authority: $ADMIN_PUBKEY
 
 EOF`
+ACTUAL=`$SOURCE/scripts/vamp -u l show $VOTE_ACCOUNT_KEYPAIR`
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+    echo "FAIL: set_administrator_success: Unexpected manager account contents:"
+    diff <(echo "$EXPECTED") <(echo "$ACTUAL")
+    exit 1
+fi
 
 
 # Leave to clean up test

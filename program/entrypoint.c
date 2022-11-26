@@ -1352,7 +1352,8 @@ static uint64_t process_withdraw_rewards(const SolParameters *params, const SolS
 
     // Compute maximum lamports that may be withdrawn from the vote account
     uint64_t maximum_allowed_lamports = 0;
-    uint64_t rent_exempt_minimum = get_rent_exempt_minimum(sizeof(VoteAccountManagerState));
+    // The maximum size of a vote account is 3762, as declared by the VoteState::sizeof_of() Rust function
+    uint64_t rent_exempt_minimum = get_rent_exempt_minimum(3762);
 
     if (*(vote_account->lamports) > rent_exempt_minimum) {
         maximum_allowed_lamports = *(vote_account->lamports) - rent_exempt_minimum;

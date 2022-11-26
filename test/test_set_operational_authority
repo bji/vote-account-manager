@@ -44,16 +44,21 @@ WITHDRAWER_PUBKEY=`solxact pubkey $WITHDRAWER_KEYPAIR`
 ADMIN_PUBKEY=`solxact pubkey $ADMIN_KEYPAIR`
 USER_PUBKEY=`solxact pubkey $USER_KEYPAIR`
 OPERATIONS_AUTHORITY_PUBKEY=`solxact pubkey $OPERATIONS_AUTHORITY_KEYPAIR`
-
 EXPECTED=`cat <<EOF
 
 Manager Account: $MANAGER_ACCOUNT_PUBKEY
 Withdraw Authority: $WITHDRAWER_PUBKEY
 Administrator: $ADMIN_PUBKEY
 Operational Authority: $OPERATIONS_AUTHORITY_PUBKEY
-Rewards Authority: $ADMIN_PUBKEY
+Rewards Authority: $USER_PUBKEY
 
 EOF`
+ACTUAL=`$SOURCE/scripts/vamp -u l show $VOTE_ACCOUNT_KEYPAIR`
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+    echo "FAIL: set_operational_authority_success: Unexpected manager account contents:"
+    diff <(echo "$EXPECTED") <(echo "$ACTUAL")
+    exit 1
+fi
 
 
 # Leave to clean up test

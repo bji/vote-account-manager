@@ -83,6 +83,14 @@ function sleep_until_next_epoch ()
 }
 
 
+function account_balance ()
+{
+    local ACCOUNT=$1
+
+    solana balance -u l $ACCOUNT | cut -d ' ' -f 1    
+}
+
+
 function assert ()
 {
     RESULT=$?
@@ -293,6 +301,8 @@ source $SOURCE/test/test_set_rewards_authority
 source $SOURCE/test/test_set_vote_authority
 
 source $SOURCE/test/test_set_validator_identity
+
+source $SOURCE/test/test_withdraw_rewards
 
 
 # Tear down
