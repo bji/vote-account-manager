@@ -103,7 +103,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-leave-epoch              \\
             <WITHDRAW_AUTHORITY> <VOTE_ACCOUNT> <LEAVE_EPOCH>
 
-'vamp set-leave-epoch` sets the earliest epoch at which a 'leave' command may
+'vamp set-leave-epoch' sets the earliest epoch at which a 'leave' command may
 be issued to return control of the vote account to the withdraw authority.
 
 The following optional arguments may preceed the 'set-leave-epoch' command:
@@ -176,7 +176,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] leave <WITHDRAW_AUTHORITY>    \\
             <VOTE_ACCOUNT>
 
-'vamp leave` removes the vote account from Vote Account Manager program
+'vamp leave' removes the vote account from Vote Account Manager program
 control, and re-sets the vote account's withdraw authority to
 <WITHDRAW_AUTHORITY>.  Note that if the program is enforcing commission limits
 on the vote account, then a leave epoch must have been set by the 'vamp
@@ -223,7 +223,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-administrator             \\
             <WITHDRAW_AUTHORITY> <VOTE_ACCOUNT> <NEW_ADMINISTRATOR>
 
-'vamp set-administrator` sets the pubkey of the new administrator account to
+'vamp set-administrator' sets the pubkey of the new administrator account to
 be used to authenticate these commands:
     set-operational-authority
     set-rewards-authority
@@ -271,7 +271,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-operational-authority     \\
             <ADMINISTRATOR> <VOTE_ACCOUNT> <NEW_AUTHORITY>
 
-'vamp set-operational-authority` sets the pubkey of the new operational
+'vamp set-operational-authority' sets the pubkey of the new operational
 authority account to be used to authenticate these commands:
     set-vote-authority
     set-validator-identity
@@ -320,7 +320,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-rewards-authority         \\
             <ADMINISTRATOR> <VOTE_ACCOUNT> <NEW_AUTHORITY>
 
-'vamp set-rewards-authority` sets the pubkey of the new rewards authority
+'vamp set-rewards-authority' sets the pubkey of the new rewards authority
 account to be used to authenticate these commands:
     withdraw
     set-commission
@@ -368,7 +368,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-vote-authority            \\
             <OPERATIONAL_AUTHORITY> <VOTE_ACCOUNT> <NEW_AUTHORITY>
 
-'vamp set-vote-authority` sets the pubkey of the new vote authority account for
+'vamp set-vote-authority' sets the pubkey of the new vote authority account for
 the vote account.  This can also be accomplished by the normal 'solana
 vote-authorize-voter' command, since the vote authority of the vote account
 (which the Vote Account Manager does not change) always has rights to switch to
@@ -421,7 +421,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-validator-identity        \\
             <OPERATIONAL_AUTHORITY> <VOTE_ACCOUNT> <NEW_VALIDATOR_IDENTITY>
 
-'vamp set-validator-identity` sets the keypair of the new validator identity
+'vamp set-validator-identity' sets the keypair of the new validator identity
 for the vote account.
 
 The following optional arguments may preceed the 'set-validator-identity'
@@ -471,7 +471,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] withdraw <REWARDS_AUTHORITY>  \\
             <VOTE_ACCOUNT> <RECIPIENT_ACCOUNT> [<SOL_TO_WITHDRAW>]
 
-'vamp withdraw` withdraws SOL from the vote account.  It will never withdraw
+'vamp withdraw' withdraws SOL from the vote account.  It will never withdraw
 below the rent exempt reserve of the vote account.
 
 The following optional arguments may preceed the 'withdraw' command:
@@ -531,7 +531,7 @@ EOF
 Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-commission                \\
             <REWARDS_AUTHORITY> <VOTE_ACCOUNT> <NEW_COMMISSION>
 
-'vamp set-commission` sets the vote account's commission to a new value.  If
+'vamp set-commission' sets the vote account's commission to a new value.  If
 the Vote Account Manager program has been configured to enforce commission
 caps on the vote account, then NEW_COMMISSION must not violate those caps.
 
@@ -580,7 +580,7 @@ EOF
 
 Usage: vamp [-u <RPC_ENDPOINT>] show <VOTE_ACCOUNT> [json]
 
-'vamp show` shows the currently configured values for a vote account under
+'vamp show' shows the currently configured values for a vote account under
 control of the Vote Account Manager program.
 
 The following optional arguments may preceed the 'show' command:
@@ -672,7 +672,12 @@ function require ()
 
 function tx ()
 {
-    echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY | solxact submit $RPC_ENDPOINT
+    if [ -n "$FEE_PAYER" -a "$FEE_PAYER" != "$AUTHORITY" ]; then
+        echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY | solxact sign $FEE_PAYER     \
+                | solxact submit $RPC_ENDPOINT
+    else
+        echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY | solxact submit $RPC_ENDPOINT
+    fi
 }
 
 
@@ -681,8 +686,13 @@ function tx_2 ()
     ADDITIONAL_SIGNER=$1
     shift
     
-    echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY | solxact sign $ADDITIONAL_SIGNER \
-            | solxact submit $RPC_ENDPOINT
+    if [ -n "$FEE_PAYER" -a "$FEE_PAYER" != "$AUTHORITY" -a "$FEE_PAYER" != "$ADDITIONAL_SIGNER" ]; then
+        echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY                               \
+                | solxact sign $ADDITIONAL_SIGNER | solxact submit $RPC_ENDPOINT
+    else
+        echo $@ | solxact encode | solxact hash $RPC_ENDPOINT | solxact sign $AUTHORITY                               \
+                | solxact sign $ADDITIONAL_SIGNER | solxact sign $FEE_PAYER | solxact submit $RPC_ENDPOINT
+    fi
 }
 
 # Data is piped in
@@ -791,7 +801,12 @@ function get_account_data ()
 
 # If the next argument is [-f], then a fee payer is specified
 if [ "$1" = "-f" ]; then
+    shift
     FEE_PAYER="$1"
+    if [ -z "$FEE_PAYER" ]; then
+        usage
+        exit 1
+    fi
     shift
 fi
 
@@ -856,7 +871,7 @@ shift
 
 # Define pubkeys
 if [ -z "$SELF_PROGRAM_PUBKEY" ]; then
-    SELF_PROGRAM_PUBKEY="vamp1eWV3zyWNiRwC7rdiBznrN8nB8ML8uXGk2kg7cU"
+    SELF_PROGRAM_PUBKEY="vamp2RmRDCj5ZW8rGzU1vKh3NCudJcbW8M8ey7q1CXn"
 fi
 
 SYSTEM_PROGRAM_PUBKEY="11111111111111111111111111111111"
@@ -866,7 +881,8 @@ MANAGER_ACCOUNT_PUBKEY=`solxact pda $SELF_PROGRAM_PUBKEY [ pubkey $VOTE_ACCOUNT 
 
 if [ -z "$MANAGER_ACCOUNT_PUBKEY" ]; then
     echo
-    echo "ERROR: Failed to derive manager account address.  The supplied VOTE_ACCOUNT is not valid."
+    echo "ERROR: Failed to derive manager account address.  The supplied VOTE_ACCOUNT"
+    echo "($VOTE_ACCOUNT) is not valid."
     usage "$COMMAND"
     exit 1
 fi

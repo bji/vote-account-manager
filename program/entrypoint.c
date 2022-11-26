@@ -366,7 +366,7 @@ typedef struct
 {
     // This constant ensures that data conforming to the "Solana Security.txt" format is present in the binary.
     // See: https://github.com/neodyme-labs/solana-security-txt
-    const char security_txt[319];
+    const char security_txt[341];
 
     // This is the Vote Account Manager program pubkey.  It is the account address that actually stores this program.
     SolPubkey self_program_pubkey;
@@ -391,7 +391,7 @@ static const _Constants Constants =
     "name\0Vote Account Manager\0"
     "project_url\0https://github.com/bji/vote-account-manager\0"
     "contacts\0email:shinobisystems@yahoo.com\0"
-    "policy\0https://github.com/bji/vote-account-manager/security_policy.txt\0"
+    "policy\0https://raw.githubusercontent.com/bji/vote-account-manager/master/security_policy.txt\0"
     "source_code\0https://github.com/bji/vote-account-manager\0"
     "=======END SECURITY.TXT V1=======\0",
 
