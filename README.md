@@ -117,19 +117,40 @@ to the next command.
 You can inspect all of the tests that were run by looking at the files in the `test` directory.
 
 
-## Issuing Manual Transactions
+## Interacting with the Vote Account Manager
+
+A script `vamp` is provided in the scripts directory.  It requires the installation of the
+solxact program before it can be used.
+
+vamp supports all available interactions with the Vote Account Manager program, and additionally
+allows for the query for configuration state of a given vote account.  For more help:
+
+```
+$ vamp help
+
+vamp is a utility script that can be used to interact with the Vote Account
+Manager program.  All functionality of the program can be exercised using this
+script.  Note that the 'solxact' program must be installed to use vamp.
 
 
-The vote-account-manager repository contains a script that can be used to interact with the
-Vote Account Manager program.  This script is present in the scripts directory and is named `vamp`.
-The `solxact` utility is required to use this script.
+Usage: vamp enter                      -- To start using VAMP
+       vamp set-leave-epoch            -- To set a leave epoch
+       vamp leave                      -- To stop using VAMP
+       vamp set-administrator          -- To set the administrator
+       vamp set-operational-authority  -- To set the operational authority
+       vamp set-rewards-authority      -- To set the rewards authority
+       vamp set-vote-authority         -- To set the vote authority
+       vamp set-validator-identity     -- To set the validator identity
+       vamp withdraw                   -- To withdraw from the vote account
+       vamp set-commission             -- To set commission
+       vamp show                       -- To show managed state
+       vamp help                       -- To print this help message
 
 
-## Inspecting On-Chain State
+For help on a specific command, use 'vamp help <COMMAND>', for example:
 
-
-The show.sh program in the scripts directory can be used to dump into JSON format all
-on-chain account data associated with the Vote Account Manager program.
+$ vamp help enter
+```
 
 
 ## License
