@@ -1,0 +1,220 @@
+
+# Enter for a vote account to be used in remaining tests
+assert set_commission_setup                                                                                           \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 50 2 2>&1`
+assert set_commission_setup_2                                                                                         \
+`$SOURCE/scripts/vamp -u l set-operational-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                             \
+                      $OPERATIONS_AUTHORITY_KEYPAIR 2>&1`
+assert set_commission_setup_3                                                                                         \
+`$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                 \
+                      $REWARDS_AUTHORITY_KEYPAIR 2>&1`
+
+
+# Short data
+assert_fail set_commission_short_data                                                                                 \
+'{"Custom":1001}'                                                                                                     \
+`echo "encoding c                                                                                                     \
+       fee_payer $REWARDS_AUTHORITY_KEYPAIR                                                                           \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Rewards Authority //                                                                                        \
+       account $REWARDS_AUTHORITY_KEYPAIR s                                                                           \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Instruction code 9 = SetCommission //                                                                       \
+       u8 9"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $REWARDS_AUTHORITY_KEYPAIR                                                                         \
+    | solxact submit l 2>&1`
+
+
+# Invalid rewards authority
+assert_fail set_commission_invalid_rewards_authority                                                                  \
+'{"Custom":1102}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $USER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 10 2>&1`
+
+
+# Commission too large
+assert_fail set_commission_too_large                                                                                  \
+'{"Custom":1005}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 51 2>&1`
+
+
+# Commission change too large
+assert_fail set_commission_change_too_large                                                                           \
+'{"Custom":1013}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 3 2>&1`
+
+
+# Wait for a fresh epoch to ensure that an epoch is not spanned while doing the next steps
+sleep_until_next_epoch
+
+
+# Increment success (0 -> 1)
+assert set_commission_increment_1                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 1 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 1 ]; then
+    echo "FAIL: set_commission_increment_1 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment success again (1 -> 2)
+assert set_commission_increment_2                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 2 ]; then
+    echo "FAIL: set_commission_increment_2 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment fail (2 -> 3)
+assert_fail set_commission_increment_3                                                                                \
+'{"Custom":1013}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 3 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 2 ]; then
+    echo "FAIL: set_commission_increment_3 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Decrement success (2 -> 0)
+assert set_commission_decrement                                                                                       \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 0 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 0 ]; then
+    echo "FAIL: set_commission_decrement unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment success (0 -> 2)
+assert set_commission_increment_4                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 2 ]; then
+    echo "FAIL: set_commission_increment_4 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment fail (2 -> 3)
+assert_fail set_commission_increment_5                                                                                \
+'{"Custom":1013}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 3 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 2 ]; then
+    echo "FAIL: set_commission_increment_5 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Wait an epoch, which will then allow more increases
+sleep_until_next_epoch
+
+
+# Increment success (2 -> 4)
+assert set_commission_increment_6                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 4 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 4 ]; then
+    echo "FAIL: set_commission_increment_6 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment fail (4 -> 5)
+assert_fail set_commission_increment_7                                                                                \
+'{"Custom":1013}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 5 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 4 ]; then
+    echo "FAIL: set_commission_increment_7 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Decrement success (4 -> 0)
+assert set_commission_decrement_2                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 0 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 0 ]; then
+    echo "FAIL: set_commission_decrement_2 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment success (0 -> 3)
+assert set_commission_increment_8                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 3 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 3 ]; then
+    echo "FAIL: set_commission_increment_8 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment success (3 -> 4)
+assert set_commission_increment_9                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 4 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 4 ]; then
+    echo "FAIL: set_commission_increment_9 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Increment fail (4 -> 5)
+assert_fail set_commission_increment_10                                                                               \
+'{"Custom":1013}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 5 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 4 ]; then
+    echo "FAIL: set_commission_increment_10 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Set leave epoch
+LEAVE_EPOCH=$((`current_epoch`+2))
+assert set_commission_setup_4                                                                                         \
+`$SOURCE/scripts/vamp -u l set-leave-epoch $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $LEAVE_EPOCH 2>&1`
+
+
+# No more changes possible
+assert_fail set_commission_decrement_3                                                                                \
+'{"Custom":1008}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 0 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 4 ]; then
+    echo "FAIL: set_commission_decrement_3 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Wait until next epoch
+sleep_until_next_epoch
+
+
+# No changes possible because leaving
+assert_fail set_commission_increment_11                                                                               \
+'{"Custom":1008}'                                                                                                     \
+`$SOURCE/scripts/vamp -u l set-commission $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 5 2>&1`
+if [ `vote_account_commission $VOTE_ACCOUNT_KEYPAIR` != 4 ]; then
+    echo "FAIL: set_commission_increment_11 unexpected commission:"
+    echo `vote_account_commission $VOTE_ACCOUNT_KEYPAIR`
+    exit 1
+fi
+
+
+# Leave to clean up test ... 
+sleep_until_epoch $LEAVE_EPOCH
+assert set_commission_cleanup                                                                                         \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

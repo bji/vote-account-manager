@@ -8,6 +8,7 @@ assert set_operational_authority_setup_2                                        
 assert set_operational_authority_setup_3                                                                              \
 `$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 2>&1`
 
+
 # Short data
 assert_fail set_rewards_authority_short_data                                                                          \
 '{"Custom":1001}'                                                                                                     \

@@ -91,6 +91,12 @@ function account_balance ()
 }
 
 
+function vote_account_commission ()
+{
+    solana -u l vote-account $1 | grep ^Commission | cut -d ' ' -f 2 | tr -d '%'
+}
+
+
 function assert ()
 {
     RESULT=$?
@@ -197,67 +203,62 @@ function make_funded_keypair ()
 
 
 # Set up
-if [ -z "$TEST_NO_SETUP" ]; then
-    
-    # Make a temporary directory to hold the validator ledger
-    export LEDGER=`mktemp -d`
-    
-    # Start the test validator
-    echo "Starting test validator @ $LEDGER"
-    solana-test-validator --ledger $LEDGER --ticks-per-slot 16 --slots-per-epoch 100 >/dev/null 2>/dev/null &
+# Make a temporary directory to hold the validator ledger
+export LEDGER=`mktemp -d`
 
-    # Give it time to start
-    echo "Waiting 10 seconds for it to settle"
-    sleep 10
+# Start the test validator
+echo "Starting test validator @ $LEDGER"
+solana-test-validator --ledger $LEDGER --ticks-per-slot 16 --slots-per-epoch 400 >/dev/null 2>/dev/null &
 
-    # Create keys
-    make_funded_keypair $LEDGER/program.json 0
-    make_funded_keypair $LEDGER/withdrawer.json 100000
-    make_funded_keypair $LEDGER/withdrawer2.json 100000
-    make_funded_keypair $LEDGER/admin.json 100000
-    make_funded_keypair $LEDGER/operations_authority.json 100000
-    make_funded_keypair $LEDGER/rewards_authority.json 100000
-    make_funded_keypair $LEDGER/vote_authority.json 100000
-    make_funded_keypair $LEDGER/user.json 100
-    make_funded_keypair $LEDGER/nonexistent_user.json 0
-    make_funded_keypair $LEDGER/validator_identity.json 0
-    make_funded_keypair $LEDGER/vote_account.json 0
-    make_funded_keypair $LEDGER/validator_identity2.json 0
-    make_funded_keypair $LEDGER/vote_account2.json 0
-    make_funded_keypair $LEDGER/stake_account.json 0 finalized
+# Give it time to start
+echo "Waiting 10 seconds for it to settle"
+sleep 10
 
-    # Create a stake account
-    echo "Creating stake account @ $LEDGER/stake_account.json"
-    solana -u l create-stake-account -k $LEDGER/withdrawer.json $LEDGER/stake_account.json 1 >/dev/null 2>/dev/null
+# Create keys
+make_funded_keypair $LEDGER/program.json 0
+make_funded_keypair $LEDGER/withdrawer.json 100000
+make_funded_keypair $LEDGER/withdrawer2.json 100000
+make_funded_keypair $LEDGER/admin.json 100000
+make_funded_keypair $LEDGER/operations_authority.json 100000
+make_funded_keypair $LEDGER/rewards_authority.json 100000
+make_funded_keypair $LEDGER/vote_authority.json 100000
+make_funded_keypair $LEDGER/user.json 100
+make_funded_keypair $LEDGER/nonexistent_user.json 0
+make_funded_keypair $LEDGER/validator_identity.json 0
+make_funded_keypair $LEDGER/vote_account.json 0
+make_funded_keypair $LEDGER/validator_identity2.json 0
+make_funded_keypair $LEDGER/vote_account2.json 0
+make_funded_keypair $LEDGER/stake_account.json 0 finalized
 
-    # Create vote accounts
-    echo "Creating vote accounts"
-    solana -u l create-vote-account --fee-payer $LEDGER/withdrawer.json $LEDGER/vote_account.json                     \
-           $LEDGER/validator_identity.json $LEDGER/withdrawer.json >/dev/null 2>/dev/null
-    solana -u l create-vote-account --fee-payer $LEDGER/withdrawer2.json $LEDGER/vote_account2.json                   \
-           $LEDGER/validator_identity2.json $LEDGER/withdrawer2.json --commitment=finalized >/dev/null 2>/dev/null
-    solana -u l vote-update-commission -k $LEDGER/withdrawer.json $LEDGER/vote_account.json 0                         \
-           $LEDGER/withdrawer.json >/dev/null 2>/dev/null
-    solana -u l vote-update-commission -k $LEDGER/withdrawer2.json $LEDGER/vote_account2.json 0                       \
-           $LEDGER/withdrawer2.json --commitment finalized >/dev/null 2>/dev/null
+# Create a stake account
+echo "Creating stake account @ $LEDGER/stake_account.json"
+solana -u l create-stake-account -k $LEDGER/withdrawer.json $LEDGER/stake_account.json 1 >/dev/null 2>/dev/null
 
-    # Build the program
-    echo "Making build script"
-    $SOURCE/make_build_program.sh $LEDGER/program.json > $LEDGER/build_program.sh
-    chmod +x $LEDGER/build_program.sh
-    echo "Building program"
-    (cd $LEDGER;                                                                                                      \
-     SDK_ROOT=~/.local/share/solana/install/active_release/bin/sdk SOURCE_ROOT=$SOURCE ./build_program.sh)
-    
-    # Deploy the program.
-    echo "Deploying program"
-    # Not sure why, but need to sleep to ensure the following succeeds
-    sleep 1
-    solana -k $LEDGER/withdrawer.json -u l program deploy --program-id $LEDGER/program.json $LEDGER/program.so        \
-           --commitment finalized >/dev/null 2>/dev/null
-else
-    export LEDGER=`echo /tmp/tmp.*`
-fi
+# Create vote accounts
+echo "Creating vote accounts"
+solana -u l create-vote-account --fee-payer $LEDGER/withdrawer.json $LEDGER/vote_account.json                         \
+       $LEDGER/validator_identity.json $LEDGER/withdrawer.json >/dev/null 2>/dev/null
+solana -u l create-vote-account --fee-payer $LEDGER/withdrawer2.json $LEDGER/vote_account2.json                       \
+       $LEDGER/validator_identity2.json $LEDGER/withdrawer2.json --commitment=finalized >/dev/null 2>/dev/null
+solana -u l vote-update-commission -k $LEDGER/withdrawer.json $LEDGER/vote_account.json 0                             \
+       $LEDGER/withdrawer.json >/dev/null 2>/dev/null
+solana -u l vote-update-commission -k $LEDGER/withdrawer2.json $LEDGER/vote_account2.json 0                           \
+       $LEDGER/withdrawer2.json --commitment finalized >/dev/null 2>/dev/null
+
+# Build the program
+echo "Making build script"
+$SOURCE/make_build_program.sh $LEDGER/program.json > $LEDGER/build_program.sh
+chmod +x $LEDGER/build_program.sh
+echo "Building program"
+(cd $LEDGER;                                                                                                          \
+ SDK_ROOT=~/.local/share/solana/install/active_release/bin/sdk SOURCE_ROOT=$SOURCE ./build_program.sh)
+
+# Deploy the program.
+echo "Deploying program"
+# Not sure why, but need to sleep to ensure the following succeeds
+sleep 1
+solana -k $LEDGER/withdrawer.json -u l program deploy --program-id $LEDGER/program.json $LEDGER/program.so            \
+       --commitment finalized >/dev/null 2>/dev/null
 
 
 # Set pubkey variables
@@ -286,33 +287,30 @@ export VOTE_ACCOUNT2_KEYPAIR=$LEDGER/vote_account2.json
 export STAKE_ACCOUNT_KEYPAIR=$LEDGER/stake_account.json
 
 
+# Run tests
 source $SOURCE/test/test_enter
-
 source $SOURCE/test/test_set_leave_epoch
-
 source $SOURCE/test/test_leave
-
 source $SOURCE/test/test_set_administrator
-
 source $SOURCE/test/test_set_operational_authority
-
 source $SOURCE/test/test_set_rewards_authority
-
 source $SOURCE/test/test_set_vote_authority
-
 source $SOURCE/test/test_set_validator_identity
-
 source $SOURCE/test/test_withdraw_rewards
+source $SOURCE/test/test_set_commission
 
 
 # Tear down
-#echo "Stopping test validator @ $LEDGER"
-#
-#solana-validator --ledger $LEDGER exit --force >/dev/null 2>/dev/null
-#
-## Wait until it's exited
-#while ps auxww | grep solana-test-ledger | grep -v grep; do
-#    sleep 1
-#done
-#
-#rm -rf $LEDGER
+echo "Stopping test validator @ $LEDGER"
+
+solana-validator --ledger $LEDGER exit --force >/dev/null 2>/dev/null
+
+# Wait until it's exited
+while ps auxww | grep solana-test-ledger | grep -v grep; do
+    sleep 1
+done
+
+rm -rf $LEDGER
+
+
+echo "All tests passed"

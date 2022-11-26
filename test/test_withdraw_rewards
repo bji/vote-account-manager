@@ -1,12 +1,12 @@
 
 
 # Enter for a vote account to be used in remaining tests
-assert set_withdraw_rewards_setup                                                                                     \
+assert withdraw_rewards_setup                                                                                         \
 `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
-assert set_withdraw_rewards_setup_2                                                                                   \
+assert withdraw_rewards_setup_2                                                                                       \
 `$SOURCE/scripts/vamp -u l set-operational-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                             \
                       $OPERATIONS_AUTHORITY_KEYPAIR 2>&1`
-assert set_withdraw_rewards_setup_3                                                                                   \
+assert withdraw_rewards_setup_3                                                                                       \
 `$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                 \
                       $REWARDS_AUTHORITY_KEYPAIR 2>&1`
 
