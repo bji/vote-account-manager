@@ -1,18 +1,18 @@
 
 
 # Enter for a vote account to be used in remaining tests
-assert withdraw_rewards_setup                                                                                         \
+assert withdraw_setup                                                                                                 \
 `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
-assert withdraw_rewards_setup_2                                                                                       \
+assert withdraw_setup_2                                                                                               \
 `$SOURCE/scripts/vamp -u l set-operational-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                             \
                       $OPERATIONS_AUTHORITY_KEYPAIR 2>&1`
-assert withdraw_rewards_setup_3                                                                                       \
+assert withdraw_setup_3                                                                                               \
 `$SOURCE/scripts/vamp -u l set-rewards-authority $ADMIN_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                                 \
                       $REWARDS_AUTHORITY_KEYPAIR 2>&1`
 
 
 # Short data
-assert_fail withdraw_rewards_short_data                                                                               \
+assert_fail withdraw_short_data                                                                                       \
 '{"Custom":1001}'                                                                                                     \
 `echo "encoding c                                                                                                     \
        fee_payer $REWARDS_AUTHORITY_KEYPAIR                                                                           \
@@ -36,15 +36,15 @@ assert_fail withdraw_rewards_short_data                                         
 
 
 # Invalid rewards authority
-assert_fail withdraw_rewards_invalid_rewards_authority                                                                \
+assert_fail withdraw_invalid_rewards_authority                                                                        \
 '{"Custom":1102}'                                                                                                     \
-`$SOURCE/scripts/vamp -u l withdraw-rewards $USER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 0 2>&1`
+`$SOURCE/scripts/vamp -u l withdraw $USER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 0 2>&1`
 
 
 # Failure because there are no rewards to withdraw
-assert_fail withdraw_rewards_invalid_no_rewards                                                                       \
+assert_fail withdraw_invalid_no_rewards                                                                               \
 '{"Custom":1006}'                                                                                                     \
-`$SOURCE/scripts/vamp -u l withdraw-rewards $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 0 2>&1`
+`$SOURCE/scripts/vamp -u l withdraw $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 0 2>&1`
 
 # Put 5 SOL into the vote account, to simulate rewards
 echo "Sending 5 SOL from $ADMIN_KEYPAIR to $VOTE_ACCOUNT_KEYPAIR"
@@ -55,27 +55,25 @@ BALANCE=`account_balance $VOTE_ACCOUNT_KEYPAIR`
 
 # Failure due to attempt to withdraw too much
 TO_WITHDRAW=`echo "20 k $BALANCE 0.0001 + p" | dc -`
-assert_fail withdraw_rewards_too_much                                                                                 \
+assert_fail withdraw_too_much                                                                                         \
 '{"Custom":1006}'                                                                                                     \
-`$SOURCE/scripts/vamp -u l withdraw-rewards $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                          \
-                      $USER_KEYPAIR $TO_WITHDRAW 2>&1`
+`$SOURCE/scripts/vamp -u l withdraw $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR $TO_WITHDRAW 2>&1`
 
 
 # Success for specified amount
 USER_BALANCE=`account_balance $USER_KEYPAIR`
 VOTE_ACCOUNT_BALANCE=`account_balance $VOTE_ACCOUNT_KEYPAIR`
-assert withdraw_rewards_success_1                                                                                     \
-`$SOURCE/scripts/vamp -u l withdraw-rewards $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                          \
-                      $USER_KEYPAIR 1 2>&1`
+assert withdraw_success_1                                                                                             \
+`$SOURCE/scripts/vamp -u l withdraw $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 1 2>&1`
 NEW_USER_BALANCE=`account_balance $USER_KEYPAIR`
 NEW_VOTE_ACCOUNT_BALANCE=`account_balance $VOTE_ACCOUNT_KEYPAIR`
 # Make sure that the user account has added 1 SOL and the vote account has removed 1 SOL
 if [ `echo "20 k $NEW_USER_BALANCE 1 - $USER_BALANCE - p" | dc -` != 0 ]; then
-    echo "FAIL: withdraw_rewards_success_1: User balance did not increase by 1"
+    echo "FAIL: withdraw_success_1: User balance did not increase by 1"
     exit 1
 fi
 if [ `echo "20 k $NEW_VOTE_ACCOUNT_BALANCE 1 + $VOTE_ACCOUNT_BALANCE - p" | dc -` != 0 ]; then
-    echo "FAIL: withdraw_rewards_success_1: Vote account balance did not decrease by 1"
+    echo "FAIL: withdraw_success_1: Vote account balance did not decrease by 1"
     exit 1
 fi
 
@@ -83,14 +81,13 @@ fi
 # Success for all available
 USER_BALANCE=$NEW_USER_BALANCE
 VOTE_ACCOUNT_BALANCE=$NEW_VOTE_ACCOUNT_BALANCE
-assert withdraw_rewards_success_remainder                                                                             \
-`$SOURCE/scripts/vamp -u l withdraw-rewards $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR                          \
-                      $USER_KEYPAIR 0 2>&1`
+assert withdraw_success_remainder                                                                                     \
+`$SOURCE/scripts/vamp -u l withdraw $REWARDS_AUTHORITY_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $USER_KEYPAIR 0 2>&1`
 NEW_USER_BALANCE=`account_balance $USER_KEYPAIR`
 NEW_VOTE_ACCOUNT_BALANCE=`account_balance $VOTE_ACCOUNT_KEYPAIR`
 # Make sure that the new vote account balance is 0.027089595
 if [ "$NEW_VOTE_ACCOUNT_BALANCE" != "0.027089595" ]; then
-    echo "FAIL: withdraw_rewards_success_remainder: vote account was not reduced to rent exempt minimum"
+    echo "FAIL: withdraw_success_remainder: vote account was not reduced to rent exempt minimum"
     exit
 fi
 # Make sure that the user account balance has increased by the amount that the vote account was reduced by
@@ -102,5 +99,5 @@ fi
 
 
 # Leave to clean up test
-assert withdraw_rewards_cleanup                                                                                       \
+assert withdraw_cleanup                                                                                               \
 `$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

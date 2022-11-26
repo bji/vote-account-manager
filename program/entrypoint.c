@@ -128,8 +128,8 @@ typedef enum
     //   4. `[]` The vote program id
     //
     // # Instruction data
-    //   Instance of WithdrawRewardsInstructionData
-    Instruction_WithdrawRewards               = 8,
+    //   Instance of WithdrawInstructionData
+    Instruction_Withdraw                      = 8,
 
     // Sets the commission of the vote account.  Only the rewards authority may issue this instruction.
     //
@@ -200,17 +200,17 @@ typedef struct
 } SetAuthorityInstructionData;
 
 
-// Data passed to a WithdrawRewards instruction
+// Data passed to a Withdraw instruction
 typedef struct
 {
-    // First byte is the instruction index, which for WithdrawRewards is 8
+    // First byte is the instruction index, which for Withdraw is 8
     uint8_t instruction_index;
 
     // Number of lamports to withdraw, or 0 to withdraw all available lamports down to the rent exempt minimum
     // balance of the vote account.
     uint64_t lamports;
 
-} WithdrawRewardsInstructionData;
+} WithdrawInstructionData;
 
 
 // Data passed to a SetCommission instruction
@@ -352,7 +352,7 @@ static uint64_t process_set_operational_authority(const SolParameters *params, c
 static uint64_t process_set_rewards_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds);
 static uint64_t process_set_vote_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds);
 static uint64_t process_set_validator_identity(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_withdraw_rewards(const SolParameters *params, const SolSignerSeeds *singer_seeds);
+static uint64_t process_withdraw(const SolParameters *params, const SolSignerSeeds *singer_seeds);
 static uint64_t process_set_commission(const SolParameters *params, const SolSignerSeeds *singer_seeds);
 
 
@@ -523,8 +523,8 @@ uint64_t entrypoint(const uint8_t *input)
     case Instruction_SetValidatorIdentity:
         return process_set_validator_identity(&params, &signer_seeds);
 
-    case Instruction_WithdrawRewards:
-        return process_withdraw_rewards(&params, &signer_seeds);
+    case Instruction_Withdraw:
+        return process_withdraw(&params, &signer_seeds);
 
     case Instruction_SetCommission:
         return process_set_commission(&params, &signer_seeds);
@@ -1324,10 +1324,10 @@ static uint64_t process_set_validator_identity(const SolParameters *params, cons
 }
 
 
-// Processes a WithdrawRewards instruction.  Note that entrypoint already guaranteed that the manager_account exists
-// as a manager account already, and that vote_account has data and is owned by the vote program, and that
-// manager_account is the correct Vote Account Manager state account for vote_account.
-static uint64_t process_withdraw_rewards(const SolParameters *params, const SolSignerSeeds *signer_seeds)
+// Processes a Withdraw instruction.  Note that entrypoint already guaranteed that the manager_account exists as a
+// manager account already, and that vote_account has data and is owned by the vote program, and that manager_account
+// is the correct Vote Account Manager state account for vote_account.
+static uint64_t process_withdraw(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
     DECLARE_ACCOUNTS {
@@ -1340,7 +1340,7 @@ static uint64_t process_withdraw_rewards(const SolParameters *params, const SolS
     DECLARE_ACCOUNTS_NUMBER(5);
 
     // instruction_data will be set to the input data if it is of the correct size
-    DECLARE_DATA(WithdrawRewardsInstructionData, instruction_data);
+    DECLARE_DATA(WithdrawInstructionData, instruction_data);
 
     // This is the vote account manager state
     const VoteAccountManagerState *manager_account_state = (const VoteAccountManagerState *) manager_account->data;

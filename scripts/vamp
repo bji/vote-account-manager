@@ -20,7 +20,78 @@ function usage ()
 
             cat <<EOF
 
-Usage: vamp enter
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] enter <WITHDRAW_AUTHORITY>   \\
+            <VOTE_ACCOUNT> <ADMINISTRATOR>                                    \\
+            [<MAX_COMMISSION> <MAX_COMMISSION_INCREASE_PER_EPOCH>]
+
+'vamp enter' initiates the use of the Vote Account Manager program with a
+particular vote account.  This will bring the vote account under the control of
+the Vote Account Manager program.  While under control of the program, actions
+taken on the vote account must all be issued using the vamp command (except for
+set-vote-authority, which can be accomplished by the vote authority as well as
+by vamp).
+
+The following optional arguments may preceed the 'enter' command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    WITHDRAW_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'enter' command:
+
+<WITHDRAW_AUTHORITY>: Must be the path to the withdraw authority keypair of the
+    vote account at the time that the 'vamp enter' command is executed.  The
+    vote account will have its withdraw authority replaced by an authority
+    controlled by the program; but the original WITHDRAW_AUTHORITY must be
+    retained by the user as it will be used for high level authentication by
+    the vamp program.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account which will be put under
+    control of the Vote Account Manager program.
+<ADMINISTRATOR>: Must be the pubkey of the initial administrator of the Vote
+    Account Manager managed account.  The ADMINISTRATOR will initially have
+    authority for all actions except set-leave-epoch, leave, and
+    set-administrator.
+
+After the required arguments, the following optional arguments may be provided:
+
+<MAX_COMMISSION>: If supplied, the Vote Account Manager will enforce a maximum
+    commission on the vote account.  It will not allow any commission to be set
+    that is larger than this MAX_COMMISSION value.  If this value is not
+    supplied, then the Vote Account Manager program will not limit the
+    commission which may be set on the vote account.  NOTE that if this value
+    is set, then the vote account cannot leave control by the program until a
+    leave epoch has been set, and that leave epoch has been reached.
+<MAX_COMMISSION_INCREASE_PER_EPOCH>: Must be suppled if <MAX_COMMISSION> is
+    supplied.  This gives the maximum increase, in absolute value terms, that
+    is allowed for the vote account per epoch.
+
+Examples:
+
+# Put vote account 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz under control
+# of the Vote Account Manager program.  The withdraw authority of the vote
+# account is the keypair at withdraw_authority.json.  The initial administrator
+# is the keypair at administrator.json.
+
+$ vamp enter withdraw_authority.json                                          \\
+             3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz                     \\
+             administrator.json
+
+# Put the same vote account under control of the Vote Account Manager program,
+# but use a specific fee payer, and also set a maximum commission of 10% and
+# a maximum commission change per epoch of 3%.
+
+$ vamp -f fee_payer.json enter withdraw_authority.json                        \\
+                               3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz   \\
+                               administrator.json                             \\
+                               10 3
 
 EOF
             ;;
@@ -29,7 +100,71 @@ EOF
 
             cat <<EOF
 
-Usage: vamp set-leave-epoch
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-leave-epoch              \\
+            <WITHDRAW_AUTHORITY> <VOTE_ACCOUNT> <LEAVE_EPOCH>
+
+'vamp set-leave-epoch` sets the earliest epoch at which a 'leave' command may
+be issued to return control of the vote account to the withdraw authority.
+
+The following optional arguments may preceed the 'set-leave-epoch' command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    WITHDRAW_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'set-leave-epoch' command:
+
+<WITHDRAW_AUTHORITY>: Must be the keypair of the original withdraw authority of
+    the vote account.  Only this keypair retains authority to set the leave
+    epoch after the vote account has been placed under program control.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<LEAVE_EPOCH>: Must be the number of the epoch which is set as the earliest
+    epoch that the vote account may leave program control.  Note that this
+    value must be at least the current epoch + 2.
+
+set-leave-epoch is only necessary if the Vote Account Manager program has been
+configured to restrict commission on the vote account.  If this is the case,
+then the Vote Account Manage program requires that a "leave epoch" be set
+before allowing the leave command to take control of the vote account away from
+the program.  This prevents the withdraw authority from getting around the max
+commission values by removing the vote account from program control and then
+setting the commission directly.
+
+The "leave epoch" must be at least 1 full epoch beyond the current epoch.  This
+in effect puts a minimum amount of time before the withdraw authority must wait
+to leave the program at 1 full epoch.  Thus any stakers of the vote account
+will have at least 1 full epoch to decide whether to de-stake based on the
+validator's intention to leave the program and thus revoke the controls that
+have been placed on its commission.
+
+For example, if the current epoch is 100, then the earliest leave epoch that
+may be set is 102.  During epoch 101, stakers may decide how to respond to the
+validator's intention to stop using the program.
+
+Note that after the leave command is successfully issued, no commission changes
+will be allowed for the validator.  The validator operator must remove the
+validator from the program and then can change commission at will, or can put
+the vote account back under the program's control with a new 'enter' command,
+setting new commission limits if desired.
+
+Example:
+
+# Request to be able to remove vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz from the program no earlier
+# than epoch 120.  The original withdraw authority of the vote account is
+# provided in the keypair file withdraw_authority.json.
+
+$ vamp set-leave-epoch withdraw_authority.json                                 \\
+                       3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz            \\
+                       120
 
 EOF
             ;;
@@ -38,7 +173,45 @@ EOF
 
             cat <<EOF
 
-Usage: vamp leave
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] leave <WITHDRAW_AUTHORITY>    \\
+            <VOTE_ACCOUNT>
+
+'vamp leave` removes the vote account from Vote Account Manager program
+control, and re-sets the vote account's withdraw authority to
+<WITHDRAW_AUTHORITY>.  Note that if the program is enforcing commission limits
+on the vote account, then a leave epoch must have been set by the 'vamp
+set-leave-epoch' command, and the current epoch must be at or beyond that leave
+epoch, for 'vamp leave' to succeed.
+
+The following optional arguments may preceed the 'leave' command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    WITHDRAW_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'leave' command:
+
+<WITHDRAW_AUTHORITY>: Must be the keypair of the original withdraw authority of
+    the vote account.  Only this keypair retains authority to leave the program
+    after the vote account has been placed under program control.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+
+Example:
+
+# Remove the vote account 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz from
+# program control.  The original vote account withdraw authority is provided
+# in the keyfile withdraw_authority.json.
+
+$ vamp leave withdraw_authority.json                                           \\
+             3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz
 
 EOF
             ;;
@@ -47,7 +220,46 @@ EOF
 
             cat <<EOF
 
-Usage: vamp set-administrator
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-administrator             \\
+            <WITHDRAW_AUTHORITY> <VOTE_ACCOUNT> <NEW_ADMINISTRATOR>
+
+'vamp set-administrator` sets the pubkey of the new administrator account to
+be used to authenticate these commands:
+    set-operational-authority
+    set-rewards-authority
+
+The following optional arguments may preceed the 'set-administrator' command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    WITHDRAW_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'set-administrator' command:
+
+<WITHDRAW_AUTHORITY>: Must be the keypair of the original withdraw authority of
+    the vote account.  Only this keypair retains authority to change the
+    administrator for the vote account.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<NEW_ADMINISTRATOR>: Must be the pubkey of the new administrator.
+
+Example:
+
+# Set the administrator for vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz to new_administrator.json.  The
+# original vote account withdraw authority is provided in the keyfile
+# withdraw_authority.json.
+
+$ vamp set-administrator withdraw_authority.json                               \\
+                         3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz          \\
+                         new_administrator.json
 
 EOF
             ;;
@@ -56,7 +268,47 @@ EOF
 
             cat <<EOF
 
-Usage: vamp set-operational-authority
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-operational-authority     \\
+            <ADMINISTRATOR> <VOTE_ACCOUNT> <NEW_AUTHORITY>
+
+'vamp set-operational-authority` sets the pubkey of the new operational
+authority account to be used to authenticate these commands:
+    set-vote-authority
+    set-validator-identity
+
+The following optional arguments may preceed the 'set-operational-authority'
+command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    ADMINISTRATOR will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'leave' command:
+
+<ADMINISTRATOR>: Must be the keypair of the administrator of the vote account.
+    Only this keypair retains authority to change the operational authority for
+    a vote account.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<NEW_AUTHORITY>: Must be the pubkey of the new operational authority.
+
+Example:
+
+# Set the operational authority for vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz to
+# new_operational_authority.json.  The administrator is provided in the keyfile
+# administrator.json.
+
+$ vamp set-operational-authority administrator.json                            \\
+                                 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz  \\
+                                 new_operational_authority.json
 
 EOF
             ;;
@@ -65,7 +317,46 @@ EOF
 
             cat <<EOF
 
-Usage: vamp set-rewards-authority
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-rewards-authority         \\
+            <ADMINISTRATOR> <VOTE_ACCOUNT> <NEW_AUTHORITY>
+
+'vamp set-rewards-authority` sets the pubkey of the new rewards authority
+account to be used to authenticate these commands:
+    withdraw
+    set-commission
+
+The following optional arguments may preceed the 'set-rewards-authority'
+command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    ADMINISTRATOR will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'leave' command:
+
+<ADMINISTRATOR>: Must be the keypair of the administrator of the vote account.
+    Only this keypair retains authority to change the rewards authority for the
+    vote account.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<NEW_AUTHORITY>: Must be the pubkey of the new rewards authority.
+
+Example:
+
+# Set the rewards authority for vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz to new_rewards_authority.json.
+# The administrator is provided in the keyfile administrator.json.
+
+$ vamp set-rewards-authority administrator.json                                \\
+                             3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz      \\
+                             new_rewards_authority.json
 
 EOF
             ;;
@@ -74,7 +365,51 @@ EOF
         
             cat <<EOF
 
-Usage: vamp set-vote-authority
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-vote-authority            \\
+            <OPERATIONAL_AUTHORITY> <VOTE_ACCOUNT> <NEW_AUTHORITY>
+
+'vamp set-vote-authority` sets the pubkey of the new vote authority account for
+the vote account.  This can also be accomplished by the normal 'solana
+vote-authorize-voter' command, since the vote authority of the vote account
+(which the Vote Account Manager does not change) always has rights to switch to
+a new vote authority.
+
+The following optional arguments may preceed the 'set-vote-authority'
+command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    OPERATIONAL_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'leave' command:
+
+<OPERATIONAL_AUTHORITY>: Must be the keypair of the operational authority of
+    the vote account.  Only this keypair retains authority to change the vote
+    authority for the vote account via this program (although the vote
+    account's vote authority may also change it using the 'solana
+    vote-authorize-voter' command).  <VOTE_ACCOUNT>: Must be the pubkey of the
+    vote account under program control.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<NEW_AUTHORITY>: Must be the pubkey of the new vote authority.
+
+Example:
+
+# Set the vote authority for vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz to new_vote_authority.json. 
+# The operational authority is provided in the keyfile
+# operational_authority.json.
+
+$ vamp set-vote-authority operational_authority.json                           \\
+                          3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz         \\
+                          new_vote_authority.json
 
 EOF
             ;;
@@ -83,16 +418,108 @@ EOF
         
             cat <<EOF
 
-Usage: vamp set-validator-identity
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-validator-identity        \\
+            <OPERATIONAL_AUTHORITY> <VOTE_ACCOUNT> <NEW_VALIDATOR_IDENTITY>
+
+'vamp set-validator-identity` sets the keypair of the new validator identity
+for the vote account.
+
+The following optional arguments may preceed the 'set-validator-identity'
+command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    OPERATIONAL_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'leave' command:
+
+<OPERATIONAL_AUTHORITY>: Must be the keypair of the operational authority of
+    the vote account.  Only this keypair retains authority to change the
+    validator identity for the vote account via this program (although the vote
+    account's vote authority may also change it using the 'solana
+    vote-authorize-voter' command).
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<NEW_VALIDATOR_IDENTITY>: Must be the keypair file for the new validator
+    identity.
+
+Example:
+
+# Set the validator identity for vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz to new_validator_identity.json. 
+# The operational authority is provided in the keyfile
+# operational_authority.json.
+
+$ vamp set-validator-identity operational_authority.json                       \\
+                              3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz     \\
+                              new_validator_identity.json
 
 EOF
             ;;
             
-        "withdraw-rewards")
+        "withdraw")
         
             cat <<EOF
 
-Usage: vamp withdraw-rewards
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] withdraw <REWARDS_AUTHORITY>  \\
+            <VOTE_ACCOUNT> <RECIPIENT_ACCOUNT> [<SOL_TO_WITHDRAW>]
+
+'vamp withdraw` withdraws SOL from the vote account.  It will never withdraw
+below the rent exempt reserve of the vote account.
+
+The following optional arguments may preceed the 'withdraw' command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    REWARDS_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'withdraw' command:
+
+<REWARDS_AUTHORITY>: Must be the keypair of the rewards authority of
+    the vote account.  Only this keypair retains authority to withdraw SOL
+    from the vote account via this program.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<RECIPIENT_ACCOUNT>: Must be the pubkey of the account into which the SOL
+    will be withdrawn.
+
+After the require arguments, a single optional argument may be supplied:
+
+<SOL_TO_WITHDRAW>: Is the quantity of SOL to withdraw from the vote account.
+    If this value is not present, or is specified as '0', then the maximum
+    amount of SOL that can be withdrawn from the vote account while respecting
+    rent exempt minimums will be withdrawn.
+
+Examples:
+
+# Withdraw 10.05 SOL from vote account 
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz into user_key.json.  The
+# rewards authority is provided in the keyfile rewards_authority.json.
+
+$ vamp withdraw rewards_authority.json                                         \\
+                3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz                   \\
+                user_key.json                                                  \\
+                10.05
+
+# Withdraw all available funds from the vote account:
+
+$ vamp withdraw rewards_authority.json                                         \\
+                3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz                   \\
+                user_key.json
 
 EOF
             ;;
@@ -101,7 +528,48 @@ EOF
 
             cat <<EOF
 
-Usage: vamp set-commission
+Usage: vamp [-f <FEE_PAYER>] [-u <RPC_ENDPOINT>] set-commission                \\
+            <REWARDS_AUTHORITY> <VOTE_ACCOUNT> <NEW_COMMISSION>
+
+'vamp set-commission` sets the vote account's commission to a new value.  If
+the Vote Account Manager program has been configured to enforce commission
+caps on the vote account, then NEW_COMMISSION must not violate those caps.
+
+The following optional arguments may preceed the 'withdraw' command:
+
+-f <FEE_PAYER>: Will set the fee payer for the transaction to the keypair
+    stored in the given file.  If this argument is not present, the
+    REWARDS_AUTHORITY will be used as the fee payer.
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required arguments must follow the 'withdraw' command:
+
+<REWARDS_AUTHORITY>: Must be the keypair of the rewards authority of
+    the vote account.  Only this keypair retains authority to withdraw SOL
+    from the vote account via this program.
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+<NEW_COMMISSION>: The new commission to set.  If commission caps are in effect
+    for the vote account, then NEW_COMMISSION must be no greater than the
+    max allowed commission, and must be no more than the maximum commission
+    increase above the commission that the vote account was set to when the
+    current epoch begin.  Also, if a leave epoch has been set, then the
+    commission cannot be changed.
+
+Example:
+
+# Set vote account 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz to have
+# commission 5%.  The rewards authority is provided in rewards_authority.json
+
+$ vamp set-commission rewards_authority.json                                   \\
+                      3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz             \\
+                      5
 
 EOF
             ;;
@@ -110,7 +578,51 @@ EOF
 
             cat <<EOF
 
-Usage: vamp show
+Usage: vamp [-u <RPC_ENDPOINT>] show <VOTE_ACCOUNT> [json]
+
+'vamp show` shows the currently configured values for a vote account under
+control of the Vote Account Manager program.
+
+The following optional arguments may preceed the 'show' command:
+
+-u <RPC_ENDPOINT>: Will set the URL of the RPC endpoint to send transactions to.
+    A full URL may be specified, and in addition, the following special values
+    may be used:
+        l, localhost: http://localhost:8899
+        d, devnet: https://api.devnet.solana.com
+        t, testnet: https://api.testnet.solana.com
+        m, mainnet: https://api.mainnet-beta.solana.com
+    If RPC_ENDPOINT is not supplied, then mainnet is used.
+
+The following required argument must follow the 'show' command:
+
+<VOTE_ACCOUNT>: Must be the pubkey of the vote account under program control.
+
+The following optional argument may follow the required argument:
+
+json: If the word 'json' is provided after the <VOTE_ACCOUNT>, then the
+    output format will be JSON, otherwise it will be human readable lines.
+
+Example:
+
+# Show the configuration values for the vote account
+# 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz
+
+$ vamp show 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz
+
+Manager Account: ABsS4JPCWYyN1evPJpudm7apmEZp5NTocN3CAxKnSCQk
+Withdraw Authority: 3cnbBcMULnSoyLtgGNwrEPdLiqwuzpU4bVpro2m71vn2
+Administrator: 3wHoK6DTF9jPCqDQgp99RF88qo4QPyKca9gxxSMHYsMu
+Operational Authority: B2YVSHfY3uK5egSzvt1unMchmdo3mxiC2grMxQpxf7DB
+Rewards Authority: DchTjdEyR8ea46ofauxnVPMRZvBnCpkYkYixSXpQfNnk
+Max Commission: 10
+Max Commission Increase Per Epoch: 3
+
+# Show again, this time, in JSON format:
+
+$ vamp show 3yP1VFUXzgND1UoLiVeu5AST46Ze6FVnR4DH7DDrgYTz json
+
+{"manager_account_pubkey":"ABsS4JPCWYyN1evPJpudm7apmEZp5NTocN3CAxKnSCQk","withdraw_authority":"3cnbBcMULnSoyLtgGNwrEPdLiqwuzpU4bVpro2m71vn2","administrator":"3wHoK6DTF9jPCqDQgp99RF88qo4QPyKca9gxxSMHYsMu","operational_authority":"B2YVSHfY3uK5egSzvt1unMchmdo3mxiC2grMxQpxf7DB","rewards_authority":"DchTjdEyR8ea46ofauxnVPMRZvBnCpkYkYixSXpQfNnk","max_commission":10,"max_commission_increase_per_epoch":3}
 
 EOF
             ;;
@@ -119,18 +631,28 @@ EOF
 
             cat <<EOF
 
-Usage: vamp enter
-       vamp set-leave-epoch
-       vamp leave
-       vamp set-administrator
-       vamp set-operational-authority
-       vamp set-rewards-authority
-       vamp set-vote-authority
-       vamp set-validator-identity
-       vamp withdraw-rewards
-       vamp set-commission
-       vamp show
-       vamp help
+vamp is a utility script that can be used to interact with the Vote Account
+Manager program.  All functionality of the program can be exercised using this
+script.  Note that the 'solxact' program must be installed to use vamp.
+
+
+Usage: vamp enter                      -- To start using VAMP
+       vamp set-leave-epoch            -- To set a leave epoch
+       vamp leave                      -- To stop using VAMP
+       vamp set-administrator          -- To set the administrator
+       vamp set-operational-authority  -- To set the operational authority
+       vamp set-rewards-authority      -- To set the rewards authority
+       vamp set-vote-authority         -- To set the vote authority
+       vamp set-validator-identity     -- To set the validator identity
+       vamp withdraw                   -- To withdraw from the vote account
+       vamp set-commission             -- To set commission
+       vamp show                       -- To show managed state
+       vamp help                       -- To print this help message
+
+
+For help on a specific command, use 'vamp help <COMMAND>', for example:
+
+$ vamp help enter
 
 EOF
             ;;
@@ -297,7 +819,7 @@ fi
 # The command is the next argument.
 COMMAND="$1"
 if [ -z "$COMMAND" -o "$COMMAND" = "help" ]; then
-    usage "$1"
+    usage "$2"
     exit 0
 fi
 shift
@@ -560,7 +1082,7 @@ case "$COMMAND" in
 
         ;;
         
-    "withdraw-rewards")
+    "withdraw")
 
         # Ensure dc program is in $PATH
         if ! type dc >/dev/null 2>/dev/null; then
@@ -573,7 +1095,7 @@ case "$COMMAND" in
         RECIPIENT_ACCOUNT=$1
         SOL=$2
 
-        require withdraw-rewards $RECIPIENT_ACCOUNT
+        require withdraw $RECIPIENT_ACCOUNT
 
         # If SOL is not provided, use 0, which will instruct the program to withdraw all available lamports
         if [ -z "$SOL" ]; then
@@ -596,7 +1118,7 @@ case "$COMMAND" in
             account $RECIPIENT_ACCOUNT w                                                                              \
             // Vote Program Id //                                                                                     \
             account $VOTE_PROGRAM_PUBKEY                                                                              \
-            // Instruction code 8 = WithdrawRewards //                                                                \
+            // Instruction code 8 = Withdraw //                                                                       \
             u8 8                                                                                                      \
             // Lamports //                                                                                            \
             u64 $LAMPORTS"

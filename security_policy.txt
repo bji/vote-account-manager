@@ -1,0 +1,14 @@
+
+The Vote Account Manager program is non-upgradeable, open source, and instructions are provided for verifying that
+the provided source is exactly that which built the program.  See README.md.
+
+Therefore, any user can audit the program, or have the program audited on their behalf, and can and should only
+use the program after performing such an audit or having such an audit performed on their behalf.
+
+There are no warranties, implied or otherwise, for the use of this program.  All users use it at their own risk,
+that risk being calculable because all end users have access to the source and can determine what degree of risk
+the program represents to them.
+
+If any bugs, or suspected bugs, are discovered, please send a report to shinobisystems@yahoo.com.  Although the
+program cannot be upgraded, it would be possible to discontinue use of it and switch to a new program that has
+a fix for the bug.

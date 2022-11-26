@@ -296,7 +296,7 @@ source $SOURCE/test/test_set_operational_authority
 source $SOURCE/test/test_set_rewards_authority
 source $SOURCE/test/test_set_vote_authority
 source $SOURCE/test/test_set_validator_identity
-source $SOURCE/test/test_withdraw_rewards
+source $SOURCE/test/test_withdraw
 source $SOURCE/test/test_set_commission
 
 
