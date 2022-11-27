@@ -465,10 +465,22 @@ uint64_t entrypoint(const uint8_t *input)
     const SolAccountInfo *vote_account = &(params.ka[1]);
 
     // The vote account must be a valid, existing vote account
-    if ((vote_account->data_len < sizeof(VoteStatePrefix))
-            || !SolPubkey_same(vote_account->owner, &(Constants.vote_program_pubkey))
-            || ((const VoteStatePrefix *) vote_account->data)->version != 1) {
+    if ((vote_account->data_len == 0) || !SolPubkey_same(vote_account->owner, &(Constants.vote_program_pubkey))) {
         return Error_InvalidAccount_First + 1;
+    }
+    // Check vote account structure version. SetLeaveEpoch and Leave instructions are excluded from this check
+    // to allow leaving if Solana updates the VoteState structure **and** this program is non-upgradeable.
+    switch (instruction_code) {
+        case Instruction_SetLeaveEpoch:
+        case Instruction_Leave:
+            break;
+
+        default:
+            if ((vote_account->data_len < sizeof(VoteStatePrefix))
+                    || ((const VoteStatePrefix *) vote_account->data)->version != 1) {
+                return Error_InvalidAccount_First + 1;
+            }
+            break;
     }
 
     // All instructions require that the manager_account be the correct account for the given vote_account, and must
@@ -813,6 +825,9 @@ static uint64_t get_rent_exempt_minimum(uint64_t account_size)
 
 // Returns the current commission of a vote account in *commission_return; and returns true on success and false on
 // failure (due to a bogus vote account)
+//
+// **WARNING:** This function must not be used in SetLeaveEpoch and Leave instruction handlers as they are excluded
+// from vote account structure version check.
 static uint8_t get_vote_account_commission(const SolAccountInfo *vote_account)
 {
     return ((const VoteStatePrefix *) vote_account->data)->commission;
@@ -1001,6 +1016,8 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
 // Processes a SetLeaveEpoch instruction.  Note that entrypoint already guaranteed that the manager_account exists as
 // a manager account already, and that vote_account has data and is owned by the vote program, and that
 // manager_account is the correct Vote Account Manager state account for vote_account.
+//
+// **WARNING:** This instruction must not access vote account data directly as it structure may change in future.
 static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
@@ -1052,6 +1069,8 @@ static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSi
 // Processes a Leave instruction.  Note that entrypoint already guaranteed that the manager_account exists as a
 // manager account already, and that vote_account has data and is owned by the vote program, and that manager_account
 // is the correct Vote Account Manager state account for vote_account.
+//
+// **WARNING:** This instruction must not access vote account data directly as it structure may change in future.
 static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds *signer_seeds)
 {
     // Declare accounts, which checks the permissions of all accounts, and the identity of known accounts
