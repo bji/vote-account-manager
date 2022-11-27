@@ -414,6 +414,21 @@ static const _Constants Constants =
 #define Constants (* ((_Constants *) &Constants))
 
 
+// Data structure stored in a vote account.  This is only the needed fields.
+typedef struct __attribute__((__packed__))
+{
+    uint32_t version;
+
+    SolPubkey node_pubkey;
+
+    SolPubkey authorized_withdrawer;
+
+    uint8_t commission;
+
+    // The remaining fields are not presented here as they will never be referenced
+} VoteStatePrefix;
+
+
 // --------------------------------------------------------------------------------------------------------------------
 // Public entrypoints (visible to the BPF runtime)
 // --------------------------------------------------------------------------------------------------------------------
@@ -450,7 +465,9 @@ uint64_t entrypoint(const uint8_t *input)
     const SolAccountInfo *vote_account = &(params.ka[1]);
 
     // The vote account must be a valid, existing vote account
-    if ((vote_account->data_len == 0) || !SolPubkey_same(vote_account->owner, &(Constants.vote_program_pubkey))) {
+    if ((vote_account->data_len < sizeof(VoteStatePrefix))
+            || !SolPubkey_same(vote_account->owner, &(Constants.vote_program_pubkey))
+            || ((const VoteStatePrefix *) vote_account->data)->version != 1) {
         return Error_InvalidAccount_First + 1;
     }
 
@@ -612,21 +629,6 @@ typedef struct __attribute__((__packed__))
     uint8_t burn_percent;
 
 } Rent;
-
-
-// Data structure stored in a vote account.  This is only the needed fields.
-typedef struct __attribute__((__packed__))
-{
-    uint32_t version;
-
-    SolPubkey node_pubkey;
-
-    SolPubkey authorized_withdrawer;
-
-    uint8_t commission;
-
-    // The remaining fields are not presented here as they will never be referenced
-} VoteStatePrefix;
 
 
 // Data used in a System program transfer instruction
@@ -811,15 +813,9 @@ static uint64_t get_rent_exempt_minimum(uint64_t account_size)
 
 // Returns the current commission of a vote account in *commission_return; and returns true on success and false on
 // failure (due to a bogus vote account)
-static bool get_vote_account_commission(const SolAccountInfo *vote_account, uint8_t *commission_return)
+static uint8_t get_vote_account_commission(const SolAccountInfo *vote_account)
 {
-    if (vote_account->data_len < sizeof(VoteStatePrefix)) {
-        return false;
-    }
-
-    *commission_return = ((const VoteStatePrefix *) vote_account->data)->commission;
-
-    return true;
+    return ((const VoteStatePrefix *) vote_account->data)->commission;
 }
 
 
@@ -857,11 +853,7 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         }
 
         // Check to make sure that the current commission is not already larger than the max_commission
-        uint8_t commission;
-        if (!get_vote_account_commission(vote_account, &commission)) {
-            return Error_InvalidAccount_First + 1;
-        }
-
+        uint8_t commission = get_vote_account_commission(vote_account);
         if (commission > instruction_data->max_commission) {
             return Error_CommissionTooLarge;
         }
@@ -1453,10 +1445,7 @@ static uint64_t process_set_commission(const SolParameters *params, const SolSig
         // commission_change_epoch_original_commission.
         if (manager_account_state->commission_change_epoch < clock.epoch) {
             manager_account_state->commission_change_epoch = clock.epoch;
-            if (!get_vote_account_commission
-                (vote_account, &(manager_account_state->commission_change_epoch_original_commission))) {
-                return Error_InvalidAccount_First + 1;
-            }
+            manager_account_state->commission_change_epoch_original_commission = get_vote_account_commission(vote_account);
         }
 
         // If the commission change is too large, then the change is not allowed
