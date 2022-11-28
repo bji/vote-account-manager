@@ -893,6 +893,22 @@ case "$COMMAND" in
 
     "enter")
 
+        # Check Vote Account state to ensure that it is not of a newer version number than known to the
+        # program.  It is *exceedingly* unlikely that the commission field will ever move, but if there
+        # is an updated version of VoteState, then all bets are technically off.  So don't allow enter
+        # in this case.  Vote Accounts already managed by this program can Leave and use a new version
+        # that understands the newer VoteState format.
+        VOTE_ACCOUNT_PUBKEY=`solxact pubkey $VOTE_ACCOUNT`
+        VOTE_ACCOUNT_DATA=`get_account_data $RPC_ENDPOINT $VOTE_ACCOUNT_PUBKEY 0 4`
+        if [ "$VOTE_ACCOUNT_DATA" != "" ]; then
+            VOTE_ACCOUNT_VERSION=`get_data_u32 0 "$VOTE_ACCOUNT_DATA"`
+            if [ "0$VOTE_ACCOUNT_VERSION" -gt 1 ]; then
+                echo "ERROR: Vote account $VOTE_ACCOUNT_PUBKEY uses an unknown data format."
+                echo "Please upgrade to a newer version of vamp."
+                exit 1
+            fi
+        fi
+
         ADMINISTRATOR_ACCOUNT=$1
         MAX_COMMISSION=$2
         MAX_COMMISSION_INCREASE_PER_EPOCH=$3
