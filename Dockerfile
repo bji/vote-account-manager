@@ -49,7 +49,7 @@ RUN tar zxf vote-account-manager.tar.gz --strip-components=1 "*/build_program.sh
 RUN find build_program.sh program -type f | sort | xargs cat > build_contents.txt
 
 # Check that the SHA-256 hash of build_program.sh and program files is as expected
-RUN echo "0606f30a4ac3c61880fb4bb291aa94427a6e30f534cbad75f628289d123b1945 build_contents.txt" | sha256sum -c -
+RUN echo "f4e6ae0afbed2805b47ff6fbaab3f5ff1fe12aae28e777c308e40c139fad2ac8 build_contents.txt" | sha256sum -c -
 
 # Run build_program.sh to build it
 RUN SDK_ROOT=solana-release/bin/sdk SOURCE_ROOT=. sh build_program.sh

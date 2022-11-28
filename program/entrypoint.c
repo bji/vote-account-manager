@@ -11,7 +11,7 @@
 typedef enum
 {
     // "Enter" the program.  This puts a vote account withdraw authority under control of the program.  Only the
-    // pre-existing vote acount withdraw authority may issue this instruction.
+    // pre-existing vote account withdraw authority may issue this instruction.
     //
     // # Account references
     //   0. `[WRITE]` Vote Account Manager state account, computed as the PDA of the vote account pubkey + bump seed
@@ -344,24 +344,23 @@ typedef struct
 // Internal structures, functions, and macros used by public entrypoints
 // --------------------------------------------------------------------------------------------------------------------
 
-static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_administrator(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_operational_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_rewards_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_vote_authority(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_validator_identity(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_withdraw(const SolParameters *params, const SolSignerSeeds *singer_seeds);
-static uint64_t process_set_commission(const SolParameters *params, const SolSignerSeeds *singer_seeds);
+static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_leave_epoch(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_administrator(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_operational_authority(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_rewards_authority(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_vote_authority(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_validator_identity(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_withdraw(const SolParameters *params, const SolSignerSeeds *signer_seeds);
+static uint64_t process_set_commission(const SolParameters *params, const SolSignerSeeds *signer_seeds);
 
 
 // Macro that computes the number of elements in a static array
 #define ARRAY_LEN(a) (sizeof(a) / sizeof(*a))
 
 
-// These are constant values that the program can use.  An instance of _Constants is initialized by entrypoint and
-// passed to all instruction entrypoints.
+// These are constant values that the program can use.
 typedef struct
 {
     // This constant ensures that data conforming to the "Solana Security.txt" format is present in the binary.
@@ -614,7 +613,9 @@ typedef struct __attribute__((__packed__))
 } Rent;
 
 
-// Data structure stored in a vote account.  This is only the needed fields.
+// Data structure stored in a vote account.  This is only the needed fields.  Note that this may incorrectly
+// reflect the Vote Account state on chain if the Vote Account state version has changed beyond 1.  See the
+// comments for the get_vote_account_commission function for more details.
 typedef struct __attribute__((__packed__))
 {
     uint32_t version;
@@ -810,7 +811,20 @@ static uint64_t get_rent_exempt_minimum(uint64_t account_size)
 
 
 // Returns the current commission of a vote account in *commission_return; and returns true on success and false on
-// failure (due to a bogus vote account)
+// failure (due to a bogus vote account).  NOTE that if the Vote Account state version has changed beyond version 1,
+// then it is possible that the commission field has moved or changed its data type.  In this case, an invalid
+// commission will be returned from this function.  However:
+// 1. It is *exceedingly* unlikely that commission will ever move.  The basic structure of the Vote Account is
+//    unlikely to change in such a way as to alter the first few most fundamental fields.
+// 2. In the exceedingly unlikely case that commission field does move or change its data type, then an incorrect
+//    commission will be returned from this function.  However, this is only used in two places:
+//    a. On ensuring that a vote account with commission higher than a configured max commission does not Enter the
+//       program.  While it would be unfortunate to allow a vote account in that has too high commission, this is
+//       something that stakers can easily check against and not stake or de-stake if a validator operator does this.
+//    b. On commission change.  If an incorrect commission is read from the vote account, a commission change that
+//       should be allowed or disallowed may not be allowed or disallowed properly.  This would be unfortunate but
+//       represents only a violation of voluntary commission limit policy by the validator; stakers can detect this
+//       and unstake.
 static bool get_vote_account_commission(const SolAccountInfo *vote_account, uint8_t *commission_return)
 {
     if (vote_account->data_len < sizeof(VoteStatePrefix)) {
