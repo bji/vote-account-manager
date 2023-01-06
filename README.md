@@ -7,6 +7,11 @@ This repository implements the Vote Account Manager on-chain program.  It implem
 controlled mechanism for managing a Solana vote account with enhanced security and
 support features.
 
+A walk through describing the features of the Vote Account Manager Program was presented
+in the Solana Validator Roundtable meeting on December 8, 2022.  To view that walk through:
+
+<a href="https://youtu.be/y_ee9mq0kPk?t=516">https://youtu.be/y_ee9mq0kPk?t=516</a>
+
 
 ## Location
 
