@@ -17,7 +17,7 @@ in the Solana Validator Roundtable meeting on December 8, 2022.  To view that wa
 
 The Vote Account Manager program is published at the following address:
 
-`vamp2RmRDCj5ZW8rGzU1vKh3NCudJcbW8M8ey7q1CXn`
+`vamp3angna1CBRcV6KqoxyaYw3mPybHEeoPLtmpS99N`
 
 
 ## Interacting with the Vote Account Manager
@@ -320,7 +320,7 @@ The following steps may be used to verify the program:
    important because if the program is upgradeable, then it can be changed at any time
    and verification using these steps is only valid until it is changed.  To check:
 
-   ```$ solana program show vamp2RmRDCj5ZW8rGzU1vKh3NCudJcbW8M8ey7q1CXn```
+   ```$ solana program show vamp3angna1CBRcV6KqoxyaYw3mPybHEeoPLtmpS99N```
 
    The result must include the line:
 
@@ -331,7 +331,7 @@ The following steps may be used to verify the program:
 
     You may also check the program on the solana explorer:
 
-    [https://explorer.solana.com/address/vamp2RmRDCj5ZW8rGzU1vKh3NCudJcbW8M8ey7q1CXn](https://explorer.solana.com/address/vamp2RmRDCj5ZW8rGzU1vKh3NCudJcbW8M8ey7q1CXn)
+    [https://explorer.solana.com/address/vamp3angna1CBRcV6KqoxyaYw3mPybHEeoPLtmpS99N](https://explorer.solana.com/address/vamp3angna1CBRcV6KqoxyaYw3mPybHEeoPLtmpS99N)
 
     The following will indicate that the program is not upgradeable:
 
@@ -339,7 +339,7 @@ The following steps may be used to verify the program:
    
 2. Fetch the contents of the published on-chain Solana program:
 
-   ```$ solana program dump vamp2RmRDCj5ZW8rGzU1vKh3NCudJcbW8M8ey7q1CXn vote-account-manager.so```
+   ```$ solana program dump vamp3angna1CBRcV6KqoxyaYw3mPybHEeoPLtmpS99N vote-account-manager.so```
 
 3. Compute the sha256sum of the Vote Account Manager program:
 
@@ -347,7 +347,7 @@ The following steps may be used to verify the program:
 
 4. The resulting SHA-256 checksum should be:
 
-   `5cd8d716463defd58fed76cbf711100c753f41202a24c06816873343fd761a0e`
+   `ab372285d2e6c16fe6805b5a6f2464d5425994ddd3ed1242988ce32e41e4fa75`
 
    This is the signature of the contents of the Vote Account Manager program.
 

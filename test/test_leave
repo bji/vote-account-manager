@@ -99,3 +99,68 @@ assert leave_setup_3                                                            
 `$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
 assert leave_success_2                                                                                                \
 `$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`
+
+
+# Test that a Leave, then reconstitute the manager account via lamports transfer, then Enter works -- which means that
+# the reconstituted data does not cause a problem
+assert leave_setup_4                                                                                                  \
+`$SOURCE/scripts/vamp -u l enter $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR $ADMIN_KEYPAIR 2>&1`
+assert leave_then_enter_same_tx                                                                                       \
+`echo "encoding c                                                                                                     \
+       fee_payer $WITHDRAWER_KEYPAIR                                                                                  \
+       // Leave Instruction //                                                                                        \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Withdraw Authority //                                                                                       \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // Recipient Account //                                                                                        \
+       account $WITHDRAWER_KEYPAIR w                                                                                  \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 2 = Leave //                                                                               \
+       u8 2                                                                                                           \
+       // Transfer Instruction //                                                                                     \
+       program $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Funds source //                                                                                             \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Funds destination //                                                                                        \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Data: 2 = transfer, and then lamports  //                                                                   \
+       enum 2 [ u64 10 ]                                                                                              \
+       // Enter Instruction //                                                                                        \
+       program $SELF_PROGRAM_PUBKEY                                                                                   \
+       // Vote Account Manager State Account //                                                                       \
+       account $MANAGER_ACCOUNT_PUBKEY w                                                                              \
+       // Vote Account //                                                                                             \
+       account $VOTE_ACCOUNT_KEYPAIR w                                                                                \
+       // Funding Account //                                                                                          \
+       account $WITHDRAWER_KEYPAIR ws                                                                                 \
+       // Current Withdraw Authority //                                                                               \
+       account $WITHDRAWER_KEYPAIR s                                                                                  \
+       // System Program Id //                                                                                        \
+       account $SYSTEM_PROGRAM_PUBKEY                                                                                 \
+       // Vote Program Id //                                                                                          \
+       account $VOTE_PROGRAM_PUBKEY                                                                                   \
+       // Clock Sysvar Id //                                                                                          \
+       account $CLOCK_SYSVAR_PUBKEY                                                                                   \
+       // Instruction code 0 = Enter //                                                                               \
+       u8 0                                                                                                           \
+       // Administrator //                                                                                            \
+       pubkey $ADMIN_KEYPAIR                                                                                          \
+       // Use Commission Caps //                                                                                      \
+       bool false                                                                                                     \
+       // Max Commission //                                                                                           \
+       u8 0                                                                                                           \
+       // Max Commission Increase Per Epoch //                                                                        \
+       u8 0"                                                                                                          \
+    | solxact encode                                                                                                  \
+    | solxact hash l                                                                                                  \
+    | solxact sign $WITHDRAWER_KEYPAIR                                                                                \
+    | solxact submit l 2>&1`
+assert leave_teardown_4                                                                                               \
+`$SOURCE/scripts/vamp -u l leave $WITHDRAWER_KEYPAIR $VOTE_ACCOUNT_KEYPAIR 2>&1`

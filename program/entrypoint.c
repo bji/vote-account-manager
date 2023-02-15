@@ -337,6 +337,10 @@ typedef struct
     // is false, then the meaning of this value is undefined.
     uint64_t leave_epoch;
 
+    // Current commission of the vote account.  Stored here to reduce dependencies on the data stored within vote
+    // accounts.
+    uint8_t current_commission;
+
 } VoteAccountManagerState;
 
 
@@ -614,7 +618,7 @@ typedef struct __attribute__((__packed__))
 
 
 // Data structure stored in a vote account.  This is only the needed fields.  Note that this may incorrectly
-// reflect the Vote Account state on chain if the Vote Account state version has changed beyond 1.  See the
+// reflect the Vote Account state on chain if the Vote Account state version has changed beyond 2.  See the
 // comments for the get_vote_account_commission function for more details.
 typedef struct __attribute__((__packed__))
 {
@@ -811,27 +815,23 @@ static uint64_t get_rent_exempt_minimum(uint64_t account_size)
 
 
 // Returns the current commission of a vote account in *commission_return; and returns true on success and false on
-// failure (due to a bogus vote account).  NOTE that if the Vote Account state version has changed beyond version 1,
-// then it is possible that the commission field has moved or changed its data type.  In this case, an invalid
-// commission will be returned from this function.  However:
-// 1. It is *exceedingly* unlikely that commission will ever move.  The basic structure of the Vote Account is
-//    unlikely to change in such a way as to alter the first few most fundamental fields.
-// 2. In the exceedingly unlikely case that commission field does move or change its data type, then an incorrect
-//    commission will be returned from this function.  However, this is only used in two places:
-//    a. On ensuring that a vote account with commission higher than a configured max commission does not Enter the
-//       program.  While it would be unfortunate to allow a vote account in that has too high commission, this is
-//       something that stakers can easily check against and not stake or de-stake if a validator operator does this.
-//    b. On commission change.  If an incorrect commission is read from the vote account, a commission change that
-//       should be allowed or disallowed may not be allowed or disallowed properly.  This would be unfortunate but
-//       represents only a violation of voluntary commission limit policy by the validator; stakers can detect this
-//       and unstake.
+// failure (due to a bogus vote account or incompatible vote account version).
 static bool get_vote_account_commission(const SolAccountInfo *vote_account, uint8_t *commission_return)
 {
     if (vote_account->data_len < sizeof(VoteStatePrefix)) {
         return false;
     }
 
-    *commission_return = ((const VoteStatePrefix *) vote_account->data)->commission;
+    const VoteStatePrefix *vote_state_prefix = (const VoteStatePrefix *) vote_account->data;
+
+    // Only vote account state versions <= 2 are supported; if and when the vote state stored in vote accounts
+    // is updated to a version beyond this, the following will fail:
+    // - enter with use_commission_caps set to true
+    if (vote_state_prefix->version > 2) {
+        return false;
+    }
+
+    *commission_return = vote_state_prefix->commission;
 
     return true;
 }
@@ -859,6 +859,10 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
     // instruction_data will be set to the input data if it is of the correct size
     DECLARE_DATA(EnterInstructionData, instruction_data);
 
+    // This is the vote account commission that will be stored in the manager account.  It defaults to 0 since its
+    // value is not needed if use_commission_caps is false.
+    uint8_t vote_account_commission = 0;
+
     // Enforce validity of instruction data
     if (instruction_data->use_commission_caps) {
         // Max commission > 100 is nonsensical
@@ -871,12 +875,11 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         }
 
         // Check to make sure that the current commission is not already larger than the max_commission
-        uint8_t commission;
-        if (!get_vote_account_commission(vote_account, &commission)) {
+        if (!get_vote_account_commission(vote_account, &vote_account_commission)) {
             return Error_InvalidAccount_First + 1;
         }
 
-        if (commission > instruction_data->max_commission) {
+        if (vote_account_commission > instruction_data->max_commission) {
             return Error_CommissionTooLarge;
         }
     }
@@ -1012,9 +1015,14 @@ static uint64_t process_enter(const SolParameters *params, const SolSignerSeeds 
         manager_account_state->max_commission = instruction_data->max_commission;
         manager_account_state->max_commission_increase_per_epoch = instruction_data->max_commission_increase_per_epoch;
     }
+    else {
+        manager_account_state->max_commission = 0;
+        manager_account_state->max_commission_increase_per_epoch = 0;
+    }
     manager_account_state->commission_change_epoch = 0;
     manager_account_state->commission_change_epoch_original_commission = 0;
     manager_account_state->leave_epoch = 0;
+    manager_account_state->current_commission = vote_account_commission;
 
     return 0;
 }
@@ -1138,9 +1146,14 @@ static uint64_t process_leave(const SolParameters *params, const SolSignerSeeds 
         return ret;
     }
 
-    // Now return all lamports from the manager account to the recipient account, thus deleting the manager acount
+    // Now return all lamports from the manager account to the recipient account
     *(recipient_account->lamports) += *(manager_account->lamports);
     *(manager_account->lamports) = 0;
+
+    // Dealloc the account data so that any subsequent instruction in the transaction referencing the account finds
+    // no data
+    ((uint64_t *) (manager_account->data))[-1] = 0;
+    manager_account->data_len = 0;
 
     return 0;
 }
@@ -1467,10 +1480,8 @@ static uint64_t process_set_commission(const SolParameters *params, const SolSig
         // commission_change_epoch_original_commission.
         if (manager_account_state->commission_change_epoch < clock.epoch) {
             manager_account_state->commission_change_epoch = clock.epoch;
-            if (!get_vote_account_commission
-                (vote_account, &(manager_account_state->commission_change_epoch_original_commission))) {
-                return Error_InvalidAccount_First + 1;
-            }
+            manager_account_state->commission_change_epoch_original_commission =
+                manager_account_state->current_commission;
         }
 
         // If the commission change is too large, then the change is not allowed
@@ -1484,6 +1495,9 @@ static uint64_t process_set_commission(const SolParameters *params, const SolSig
         if (instruction_data->commission > max_allowed_commission) {
             return Error_CommissionChangeTooLarge;
         }
+
+        // The new commission is allowable, so update the data
+        manager_account_state->current_commission = instruction_data->commission;
     }
 
     // Issue a vote update commission instruction to set the commission of the vote account
