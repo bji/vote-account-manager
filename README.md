@@ -55,6 +55,7 @@ For help on a specific command, use 'vamp help <COMMAND>', for example:
 $ vamp help enter
 ```
 
+
 ## Using
 
 
@@ -301,6 +302,17 @@ $ vamp show vote_account.json json | jq .
   "max_commission_increase_per_epoch": 3
 }
 ```
+
+## Audit
+
+An audit of this code base was performed by Halborn at the request/expense of the Solana Foundation.
+Please find the results in 
+[doc/Solana_Foundation_Vote_Account_Manager_Solana_Program_Security_Audit.pdf](https://github.com/bji/vote-account-manager/blob/master/doc/Solana_Foundation_Vote_Account_Manager_Solana_Program_Security_Audit.pdf).
+
+There was one Informational level issue found, which has been fixed in the currently published version
+of the VAMP program at the vamp3angna1CBRcV6KqoxyaYw3mPybHEeoPLtmpS99N address.
+
+In summary, there are no issues discovered by the security audit in the published version of VAMP.
 
 
 ## Verifying
