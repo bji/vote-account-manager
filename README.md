@@ -286,16 +286,16 @@ Max Commission: 10
 Max Commission Increase Per Epoch: 3
 ```
 
-Alternately, if `json` is added to the end of the command, like so
+Alternately, if the `--json` argument is added to the end of the command, like so
 
 ```
-$ solana-vamp show vote_account.json json
+$ solana-vamp show --json vote_account.json
 ```
 
 The result will be json, which may be more easily parsed by scripts using the `jq` command.  For example:
 
 ```
-$ solana-vamp show vote_account.json json | jq .
+$ solana-vamp show --json vote_account.json | jq .
 
 {
   "manager_account_pubkey": "ABsS4JPCWYyN1evPJpudm7apmEZp5NTocN3CAxKnSCQk",
