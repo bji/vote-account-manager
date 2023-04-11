@@ -22,38 +22,43 @@ The Vote Account Manager program is published at the following address:
 
 ## Interacting with the Vote Account Manager
 
-A script `vamp` is provided in the scripts directory.  It requires the installation of the
+The recommended way to use the Vote Account Manager is via the solana-vamp program,
+which can be installed using a Rust cargo command:
+
+`$ cargo install solana-vamp`
+
+solana-vamp supports all available interactions with the Vote Account Manager program, and
+additionally allows for the query for configuration state of a given vote account.  For more
+help:
+
+```
+$ solana-vamp help
+
+solana-vamp is a utility program that can be used to interact with the Solana
+Vote Account Manager program.
+
+Usage:
+  solana-vamp enter                      -- To start using VAMP
+  solana-vamp set-leave-epoch            -- To set a leave epoch
+  solana-vamp leave                      -- To stop using SOLANA-VAMP
+  solana-vamp set-administrator          -- To set the administrator
+  solana-vamp set-operational-authority  -- To set the operational authority
+  solana-vamp set-rewards-authority      -- To set the rewards authority
+  solana-vamp set-vote-authority         -- To set the vote authority
+  solana-vamp set-validator-identity     -- To set the validator identity
+  solana-vamp withdraw                   -- To withdraw from a vote account
+  solana-vamp set-commission             -- To set commission
+  solana-vamp show                       -- To show managed state
+  solana-vamp help                       -- To print this help message
+
+For help on a specific command, use 'solana-vamp help <COMMAND>', for example:
+
+$ solana-vamp help enter
+```
+
+In addition, a script `vamp` is provided in the scripts directory.  It requires the installation of the
 [solxact](https://github.com/bji/solxact)  program before it can be used.
 
-vamp supports all available interactions with the Vote Account Manager program, and additionally
-allows for the query for configuration state of a given vote account.  For more help:
-
-```
-$ vamp help
-
-vamp is a utility script that can be used to interact with the Vote Account
-Manager program.  All functionality of the program can be exercised using this
-script.  Note that the 'solxact' program must be installed to use vamp.
-
-
-Usage: vamp enter                      -- To start using VAMP
-       vamp set-leave-epoch            -- To set a leave epoch
-       vamp leave                      -- To stop using VAMP
-       vamp set-administrator          -- To set the administrator
-       vamp set-operational-authority  -- To set the operational authority
-       vamp set-rewards-authority      -- To set the rewards authority
-       vamp set-vote-authority         -- To set the vote authority
-       vamp set-validator-identity     -- To set the validator identity
-       vamp withdraw                   -- To withdraw from the vote account
-       vamp set-commission             -- To set commission
-       vamp show                       -- To show managed state
-       vamp help                       -- To print this help message
-
-
-For help on a specific command, use 'vamp help <COMMAND>', for example:
-
-$ vamp help enter
-```
 
 
 ## Using
@@ -207,7 +212,7 @@ withdraw authority at any time.
 The command for setting a vote account up for management in this way:
 
 ```
-$ vamp enter withdraw_authority.json vote_account.json administrator.json
+$ solana-vamp enter --withdraw-authority withdraw_authority.json --vote-account vote_account.json --administrator administrator.json
 ```
 
 After this command has been executed, the withdraw authority keypair can be put into deep cold storage, and
@@ -221,8 +226,8 @@ authority is still used because those operations are expected to be performed re
 setting a vote account up for management in this way:
 
 ```
-$ vamp enter withdraw_authority.json vote_account.json administrator.json
-$ vamp set-rewards-authority administrator.json vote_account.json rewards_authority.json
+$ solana-vamp enter --withdraw-authority-withdraw_authority.json --vote-account vote_account.json --administrator administrator.json
+$ solana-vamp set-rewards-authority --administrator administrator.json --vote-account vote_account.json --rewards-authority rewards_authority.json
 ```
 
 After these commands have been executed, the withdraw authority keypair is put into deep cold storage, the
@@ -236,9 +241,9 @@ to expect to need to change the vote authority or validator identity in future. 
 a vote account up for management in this way:
 
 ```
-$ vamp enter withdraw_authority.json vote_account.json administrator.json
-$ vamp set-operational-authority administrator.json vote_account.json operational_authority.json
-$ vamp set-rewards-authority administrator.json vote_account.json rewards_authority.json
+$ solana-vamp enter --withdraw-authority withdraw_authority.json --vote-account vote_account.json --administrator administrator.json
+$ solana-vamp set-operational-authority --administrator administrator.json --vote-account vote_account.json --operational-authority operational_authority.json
+$ solana-vamp set-rewards-authority --administrator administrator.json --vote-account vote_account.json --rewards-authority rewards_authority.json
 ```
 
 After these commands have been executed, the withdraw authority keypair is put into deep cold storage, the
@@ -256,17 +261,17 @@ for example, to set a maximum commission of 10% with a maximum increase per epoc
 command would be used in place of the `vamp enter` command used in prior use case examples:
 
 ```
-$ vamp enter withdraw_authority.json vote_account.json administrator.json 10 3
+$ solana-vamp enter --withdraw-authority withdraw_authority.json --vote-account vote_account.json --administrator administrator.json --max-commission 10 --max-commission-increase-per-epoch 3
 ```
 
 
 ## Viewing Management Settings
 
 To see the configured settings for a vote account managed by the Vote Account Manager program, use the
-`vamp show` command, like so:
+`solana-vamp show` command, like so:
 
 ```
-$ vamp show vote_account.json
+$ solana-vamp show vote_account.json
 ```
 
 The result will look like this:
@@ -284,13 +289,13 @@ Max Commission Increase Per Epoch: 3
 Alternately, if `json` is added to the end of the command, like so
 
 ```
-$ vamp show vote_account.json json
+$ solana-vamp show vote_account.json json
 ```
 
 The result will be json, which may be more easily parsed by scripts using the `jq` command.  For example:
 
 ```
-$ vamp show vote_account.json json | jq .
+$ solana-vamp show vote_account.json json | jq .
 
 {
   "manager_account_pubkey": "ABsS4JPCWYyN1evPJpudm7apmEZp5NTocN3CAxKnSCQk",
